@@ -1,0 +1,14 @@
+{
+  "name": "MMA: Monsieur Pierre's mov-cli",
+  "short_name": "MMA",
+  "description": "Search movies and series, pick one, watch.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ebeae4",
+  "theme_color": "#16171d",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "favicon.png", "sizes": "32x32", "type": "image/png" }
+  ]
+}

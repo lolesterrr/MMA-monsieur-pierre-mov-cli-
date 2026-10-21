@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MMA</title>
+<meta name="description" content="Search movies and series, pick one, watch. A web GUI in the spirit of mov-cli, with Monsieur Pierre. No accounts.">
+<meta name="theme-color" content="#ebeae4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0f1a" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MMA: Monsieur Pierre's mov-cli">
+<meta property="og:description" content="Search movies and series, pick one, watch. No accounts.">
+<meta property="og:image" content="https://lolesterrr.github.io/MMA-monsieur-pierre-mov-cli-/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preload" href="fonts/dela-gothic-one-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/zen-kaku-gothic-new-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/mma.css">
+<link rel="modulepreload" href="js/main.js">
+<script src="config.js"></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body data-view="home">
+<a class="skip-link" href="#view">Skip to content</a>
+<header class="top">
+  <a class="brand" href="#/" aria-label="MMA, home">
+    <span data-pierre="beret" data-scale="2"></span>
+    <span class="wordmark" aria-hidden="true">MMA</span>
+  </a>
+  <form class="top-search" role="search" data-search>
+    <label class="sr" for="top-q">Search movies and series</label>
+    <input id="top-q" type="search" name="q" placeholder="Search movies and series" autocomplete="off" enterkeyhint="search">
+    <button class="btn" type="submit">Search</button>
+  </form>
+  <button class="btn complain" type="button" data-complain>Complain</button>
+</header>
+
+<main id="view" tabindex="-1">
+  <noscript><p>MMA needs JavaScript to search and play.</p></noscript>
+</main>
+
+<footer class="foot">
+  <p>MMA is a web GUI in the spirit of <a href="https://github.com/mov-cli/mov-cli">mov-cli</a>. It doesn't host any video: streams come from third-party sites through MMA's worker. Catalog by <a href="https://www.stremio.com">Stremio</a>'s Cinemeta.</p>
+  <p class="foot-links">
+    <a href="https://github.com/lolesterrr/MMA-monsieur-pierre-mov-cli-">Source on GitHub</a>
+    <button class="link-btn" type="button" data-backstage>Backstage</button>
+    <button class="link-btn" type="button" data-complain>Complain</button>
+  </p>
+</footer>
+</body>
+</html>
