@@ -22,7 +22,7 @@
  *
  * Routes
  *   GET  /api/health[?deep=1]          setup status (and a check of every source)
- *   GET  /api/sources?type=movie|series&imdb=tt..&tmdb=..&title=..&year=..[&s=1&e=1][&server=auto]
+ *   GET  /api/sources?type=movie|series&imdb=tt..&tmdb=..&title=..&year=..[&s=1&e=1][&server=auto][&fresh=1]
  *        -> { server, master, direct?, subtitles, servers, tried, expires }
  *   POST /api/complaint                files a GitHub issue (needs GITHUB_TOKEN)
  *   GET  /p?t=<token>&u=<url>          signed relay for playlists, segments, subtitles
@@ -36,6 +36,7 @@
  *   ALLOWED_ORIGINS  comma separated, default * . e.g. https://lolesterrr.github.io,http://localhost:*
  *   SERVERS          order for "auto", default videasy,lookmovie,hexa
  *   COMPLAINTS_PER_10_MIN  per visitor, default 5
+ *   HEALTH_TITLE     what the deep health check plays, "imdb,tmdb,title,year" (default Inception)
  *   ENCDEC_URL, VIDEASY_URL, LOOKMOVIE_URL, HEXA_URL, SUBS_URL   override hosts (tests, mirrors)
  */
 
@@ -610,13 +611,13 @@ export function createHandler(hooks = {}) {
     for (const id of order) {
       const cacheKey = `s:${id}:${m.type}:${m.imdb}:${m.s}:${m.e}`;
       try {
-        let res = memoGet(cacheKey);
+        let res = m.fresh ? undefined : memoGet(cacheKey);
         if (!res) {
           res = await RUN[id](cfg, m);
           const first = res.master || (res.variants[0] && res.variants[0].u);
           if (!first) throw new HttpError(404, "no_source", "No stream link.");
           await verify(first, res.referer);
-          memoSet(cacheKey, res, 20 * 60e3);
+          memoSet(cacheKey, res, 10 * 60e3);
         }
         got = res;
         server = id;
@@ -846,8 +847,9 @@ export function createHandler(hooks = {}) {
       servers: cfg.order,
     };
     if (deep) {
-      // Inception: every source has it
-      const m = { type: "movie", imdb: "tt1375666", tmdb: "27205", title: "Inception", year: "2010", s: "", e: "" };
+      // Inception by default: every source has it
+      const [imdb, tmdb, title, year] = String(env.HEALTH_TITLE || "tt1375666,27205,Inception,2010").split(",");
+      const m = { type: "movie", imdb, tmdb, title, year, s: "", e: "" };
       out.sources = {};
       await Promise.all(
         cfg.order.map(async (id) => {
@@ -900,7 +902,7 @@ export function createHandler(hooks = {}) {
           const e = type === "series" ? p.get("e") || "" : "";
           if (type === "series" && (!/^\d{1,4}$/.test(s) || !/^\d{1,5}$/.test(e))) throw new HttpError(400, "no_episode", "Which season and episode?");
           const server = SERVERS[p.get("server")] ? p.get("server") : "auto";
-          const m = { type, imdb, tmdb, s, e, server, title: clean(p.get("title"), 200), year: (clean(p.get("year"), 20).match(/\d{4}/) || [""])[0] };
+          const m = { type, imdb, tmdb, s, e, server, title: clean(p.get("title"), 200), year: (clean(p.get("year"), 20).match(/\d{4}/) || [""])[0], fresh: p.get("fresh") === "1" };
           return json(request, env, 200, await sources(request, env, cfg, m));
         }
         case "/api/servers":
