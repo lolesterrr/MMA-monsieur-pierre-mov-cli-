@@ -7,6 +7,8 @@ on:
       base: { description: Site, default: "https://flixhq.to" }
   push:
     paths: [tools/probe.mjs, .github/workflows/probe.yml]
+permissions:
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -14,8 +16,13 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
-      - run: node tools/probe.mjs "${{ inputs.movie || 'the dark knight' }}" "${{ inputs.tv || 'breaking bad' }}"
+      - run: node tools/probe.mjs 2>&1 | tee probe-log.txt "${{ inputs.movie || 'the dark knight' }}" "${{ inputs.tv || 'breaking bad' }}"
         env: { BASE: "${{ inputs.base || 'https://flixhq.to' }}" }
-      - uses: actions/upload-artifact@v4
+      - name: Push the findings to the probe branch
         if: always()
-        with: { name: probe-out, path: probe-out }
+        run: |
+          mv probe-log.txt probe-out/ || true
+          cd probe-out
+          git init -q -b probe && git add -A
+          git -c user.name=probe -c user.email=probe@localhost commit -qm "probe $GITHUB_RUN_ID"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" probe
