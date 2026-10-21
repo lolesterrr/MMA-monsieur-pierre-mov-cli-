@@ -1,0 +1,8 @@
+# MMA worker. Deploy with: npx wrangler@4 deploy   (then: npx wrangler@4 secret put SIGNING_KEY)
+name = "mma"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://lolesterrr.github.io,http://localhost:*,http://127.0.0.1:*"
+GITHUB_REPO = "lolesterrr/MMA-monsieur-pierre-mov-cli-"
