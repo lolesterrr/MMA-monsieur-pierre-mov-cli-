@@ -105,3 +105,25 @@ jobs:
           node-version: 22
       - run: |
           node tools/reach-check.mjs "$(sed -nE 's|^[[:space:]]*api: "([^"]+)".*|\1|p' web/config.js)"
+
+  helper:
+    # The Deno helper finds Videasy links (Videasy refuses Cloudflare), and the video plays
+    # through the Cloudflare worker.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Helper finds a Videasy link, the worker plays it
+        run: |
+          lookup=$(sed -nE 's|^[[:space:]]*lookup: "([^"]+)".*|\1|p' web/config.js)
+          [ -n "$lookup" ] || { echo "No lookup helper in web/config.js"; exit 0; }
+          echo "Helper: $lookup"
+          curl -sS "$lookup/api/health?deep=1" | tee h.json; echo
+          curl -sS "$lookup/api/sources?type=movie&imdb=tt1375666&tmdb=27205&title=Inception&year=2010&server=videasy" > s.json
+          jq '{server: .name, master: (.master // "" | .[0:60]), subtitles: (.subtitles // [] | length), error, message}' s.json
+          jq -e '.master' s.json > /dev/null || { echo "::error::The helper found nothing: $(jq -r .message s.json)"; exit 1; }
+          curl -sSf "$(jq -r .master s.json)" > m.m3u8
+          v=$(grep '^http' m.m3u8 | tail -1); curl -sSf "$v" > v.m3u8
+          seg=$(grep -m1 '^http' v.m3u8)
+          code=$(curl -s -o seg.bin -w "%{http_code}" "$seg")
+          echo "::notice title=Helper::Videasy via the Deno helper: segment through the Cloudflare worker HTTP $code, $(stat -c %s seg.bin) bytes"
+          [ "$code" = 200 ] || [ "$code" = 206 ]

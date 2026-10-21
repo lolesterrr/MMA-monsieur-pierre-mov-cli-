@@ -6,7 +6,7 @@ window.MMA_CONFIG = {
   repo: "lolesterrr/MMA-monsieur-pierre-mov-cli-",
   // the lookup helper on Deno Deploy (deno/main.js), for sources that refuse Cloudflare.
   // Leave it empty if you don't run one.
-  lookup: "",
+  lookup: "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net",
   // the public movie and series catalog (search, posters, episode lists)
   catalog: "https://v3-cinemeta.strem.io",
 };
