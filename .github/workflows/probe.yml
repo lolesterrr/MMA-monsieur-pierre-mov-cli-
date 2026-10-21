@@ -1,0 +1,21 @@
+name: Probe
+on:
+  workflow_dispatch:
+    inputs:
+      movie: { description: Movie to search for, default: the dark knight }
+      tv: { description: Series to search for, default: breaking bad }
+      base: { description: Site, default: "https://flixhq.to" }
+  push:
+    paths: [tools/probe.mjs, .github/workflows/probe.yml]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: node tools/probe.mjs "${{ inputs.movie || 'the dark knight' }}" "${{ inputs.tv || 'breaking bad' }}"
+        env: { BASE: "${{ inputs.base || 'https://flixhq.to' }}" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: probe-out, path: probe-out }
