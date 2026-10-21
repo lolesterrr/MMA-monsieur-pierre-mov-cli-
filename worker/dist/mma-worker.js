@@ -37,6 +37,8 @@
  *   GITHUB_REPO      default lolesterrr/MMA-monsieur-pierre-mov-cli-
  *   ALLOWED_ORIGINS  comma separated, default * . e.g. https://lolesterrr.github.io,http://localhost:*
  *   SERVERS          order for "auto", default videasy,lookmovie,hexa
+ *   RELAY_ORIGIN     set only on the lookup helper (deno/main.js): the Cloudflare worker's address.
+ *                    Links it finds then play through that worker, which shares its SIGNING_KEY.
  *   COMPLAINTS_PER_10_MIN  per visitor, default 5
  *   HEALTH_TITLE     what the deep health check plays, "imdb,tmdb,title,year" (default Inception)
  *   ENCDEC_URL, VIDEASY_URL, LOOKMOVIE_URL, HEXA_URL, SUBS_URL   override hosts (tests, mirrors)
@@ -422,6 +424,7 @@ function settings(env) {
     subs: trim(env.SUBS_URL || DEFAULTS.SUBS_URL),
     order: order.length ? order : DEFAULTS.SERVERS.split(","),
     ttl: Number(env.TOKEN_TTL) > 0 ? Number(env.TOKEN_TTL) : DEFAULTS.TOKEN_TTL,
+    relayOrigin: env.RELAY_ORIGIN ? trim(env.RELAY_ORIGIN) : "",
   };
 }
 
@@ -634,7 +637,8 @@ function createHandler(hooks = {}) {
       throw new HttpError(blocked ? 503 : 404, blocked ? "blocked" : "no_source", msg || "No server has this.", { tried, servers: listServers(m.type) });
     }
 
-    const origin = new URL(request.url).origin;
+    // the lookup helper (deno/main.js) hands out links that play through the Cloudflare worker
+    const origin = cfg.relayOrigin || new URL(request.url).origin;
     const extra = await subsPromise;
     const allSubs = tidySubtitles([...got.subtitles, ...extra]);
     const urls = [got.master, ...got.variants.map((v) => v.u), ...allSubs.map((s) => s.url)].filter(Boolean);
@@ -841,12 +845,13 @@ function createHandler(hooks = {}) {
   async function health(request, env, cfg, deep) {
     const out = {
       ok: true,
-      name: "MMA worker",
+      name: cfg.relayOrigin ? "MMA lookup helper" : "MMA worker",
       version: VERSION,
       signing: Boolean(env.SIGNING_KEY),
       complaints: Boolean(env.GITHUB_TOKEN),
       repo: cfg.repo,
       servers: cfg.order,
+      ...(cfg.relayOrigin ? { relay: cfg.relayOrigin } : {}),
     };
     if (deep) {
       // Inception by default: every source has it

@@ -82,16 +82,43 @@ async function getJson(url, { method = "GET", body, timeout = 25000, signal, cac
   return data;
 }
 
+const query = (params) => (params ? "?" + new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")) : "");
+
 function request(path, { params, ...opts } = {}) {
   if (!isConfigured()) return Promise.reject(new ApiError("not_connected", "MMA isn't connected to its worker yet."));
-  const qs = params ? "?" + new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")) : "";
-  return getJson(apiBase() + path + qs, opts);
+  return getJson(apiBase() + path + query(params), opts);
+}
+
+/** The lookup helper on Deno (deno/main.js), for sources that refuse Cloudflare. "" when there isn't one. */
+export function lookupBase() {
+  return String(config().lookup || "").trim().replace(/\/+$/, "");
+}
+
+/** Ask the worker; when it comes back empty-handed, ask the lookup helper too. */
+async function sources(params, opts) {
+  let first;
+  try {
+    return await request("/api/sources", { params, timeout: 45000, ...opts });
+  } catch (e) {
+    first = e;
+  }
+  const helper = lookupBase();
+  if (!helper || !["no_source", "blocked", "upstream", "timeout"].includes(first.code)) throw first;
+  try {
+    const res = await getJson(helper + "/api/sources" + query(params), { timeout: 45000, who: "worker", ...opts });
+    return { ...res, via: "lookup", tried: [...((first.data && first.data.tried) || []), ...(res.tried || [])] };
+  } catch (e) {
+    if (e.code === "aborted") throw e;
+    if (e.code !== "no_source") throw first;
+    const tried = [...((first.data && first.data.tried) || []), ...((e.data && e.data.tried) || []).map((t) => ({ ...t, name: `${t.name} (via Deno)` }))];
+    throw new ApiError("no_source", e.message, { status: 404, data: { ...e.data, tried } });
+  }
 }
 
 export const api = {
   health: (deep = false, opts = {}) => request("/api/health", { params: { deep: deep ? 1 : "" }, timeout: deep ? 45000 : 15000, ...opts }),
-  sources: ({ type, imdb, tmdb, title, year, s, e, server, fresh }, opts = {}) =>
-    request("/api/sources", { params: { type, imdb, tmdb, title, year, s, e, server, fresh: fresh ? 1 : "" }, timeout: 45000, ...opts }),
+  sources: ({ type, imdb, tmdb, title, year, s, e, server, fresh }, opts = {}) => sources({ type, imdb, tmdb, title, year, s, e, server, fresh: fresh ? 1 : "" }, opts),
+  lookupHealth: (opts = {}) => getJson(lookupBase() + "/api/health?deep=1", { timeout: 45000, ...opts }),
   complain: (payload, opts = {}) => request("/api/complaint", { method: "POST", body: payload, timeout: 20000, ...opts }),
 };
 

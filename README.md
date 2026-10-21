@@ -99,6 +99,22 @@ Complaints are public issues, and the desk says so. It attaches the page, the ti
 
 The [Worker workflow](.github/workflows/worker.yml) redeploys the worker whenever `worker/` changes, once you add two repo secrets: `CLOUDFLARE_API_TOKEN` (made from the "Edit Cloudflare Workers" template) and `CLOUDFLARE_ACCOUNT_ID`.
 
+## The Deno helper: for sources that refuse Cloudflare
+
+Videasy and LookMovie refuse to hand links to Cloudflare's servers (Hexa doesn't mind). Videasy's video is fine going through Cloudflare, only the lookup gets refused. So [`deno/main.js`](deno/main.js) runs the same lookup code on [Deno Deploy](https://deno.com/deploy), which isn't Cloudflare, and hands back links that still play through the Cloudflare worker. A lookup is a few kilobytes, so Deno's free plan (1M requests and 20 GB a month) is far more than enough. The video never touches Deno.
+
+The site asks the worker first. When the worker comes back with nothing, it asks the helper.
+
+1. Go to [console.deno.com](https://console.deno.com), sign in with GitHub and make an organization.
+2. **+ New App**, pick this repo. Under **Edit build config**: Framework preset **No Preset**, install and build commands empty, Runtime **Dynamic**, Dynamic Entrypoint `deno/main.js`.
+3. **Add/Edit environment variables**:
+   - `SIGNING_KEY`, secret: **the same value as the Cloudflare worker's**. That's how the worker knows the helper's links are real.
+   - `RELAY_ORIGIN`: the worker's address, `https://mma.your-name.workers.dev`
+   - `ALLOWED_ORIGINS`: `https://lolesterrr.github.io`
+4. **Create App**, copy its address and put it in `web/config.js` as `lookup`.
+
+Backstage then shows a "Deno helper" row, and the player says "found by the Deno helper" when it was the one that found the link. The helper tries Videasy and Hexa only (`SERVERS`), because LookMovie's video won't go through Cloudflare either.
+
 ## If a source won't talk to Cloudflare
 
 Some sites turn away requests from Cloudflare's servers, or the worker runs out of free requests for the day. The local helper is the same worker code running on your computer, with video going through your own connection:
@@ -171,6 +187,7 @@ Run **Actions > Check the sources** to see which one. Then compare `worker/core.
 ```
 web/       the site (GitHub Pages serves this folder)
 worker/    core.js (sources and relay), worker.js (Cloudflare entry), dist/ (single-file copy)
+deno/      the lookup helper for Deno Deploy
 local/     the local helper
 tools/     Pierre's sprite generators, the worker bundler, the live source check
 test/      fake sources, worker tests, browser test, offline demo

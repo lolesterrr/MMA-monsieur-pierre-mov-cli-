@@ -1,5 +1,5 @@
 // Backstage: which worker MMA talks to, a connection check, and a couple of playback switches.
-import { api, apiBase, config, isConfigured, catalogBase } from "./api.js";
+import { api, apiBase, config, isConfigured, catalogBase, lookupBase } from "./api.js";
 import { prefs, settings, history } from "./store.js";
 import { esc, el, toast } from "./util.js";
 import { pierre } from "./pierre.js";
@@ -106,7 +106,7 @@ async function check() {
     const h = await api.health(true);
     const names = { videasy: "Videasy", lookmovie: "LookMovie", hexa: "Hexa" };
     const srcRows = Object.entries(h.sources || {}).map(([k, v]) =>
-      row(v.ok ? true : v.error === "blocked" ? false : null, names[k] || k, v.ok ? `Plays (${(v.ms / 1000).toFixed(1)}s)` : v.error === "blocked" ? "Cloudflare is blocking the worker here. The local helper can get around it." : v.message),
+      row(v.ok ? true : v.error === "blocked" ? false : null, names[k] || k, v.ok ? `Plays (${(v.ms / 1000).toFixed(1)}s)` : v.error === "blocked" || /HTTP (403|429)/.test(v.message || "") ? "Refuses Cloudflare's servers. The Deno helper or the local helper can get around it." : v.message),
     );
     let cat = [false, "Not answering"];
     try {
@@ -115,12 +115,23 @@ async function check() {
     } catch {
       /* stays red */
     }
+    let helperRows = [];
+    if (lookupBase()) {
+      try {
+        const d = await api.lookupHealth();
+        const ok = Object.entries(d.sources || {}).filter(([, v]) => v.ok).map(([k]) => names[k] || k);
+        helperRows = [row(ok.length ? true : false, "Deno helper", ok.length ? `Finds links on ${ok.join(" and ")}` : "Reachable, but no server answers it right now")];
+      } catch (e) {
+        helperRows = [row(false, "Deno helper", e.message)];
+      }
+    }
     list.innerHTML = [
       row(true, "Worker", `Reachable, version ${h.version}`),
       row(h.signing, "Video relay", h.signing ? "Ready" : "Missing SIGNING_KEY. Add it in the worker's settings."),
       row(h.complaints ? true : null, "Complaint desk", h.complaints ? `Files issues on ${h.repo}` : "Opens a prefilled GitHub issue (add GITHUB_TOKEN to the worker to file them directly)"),
       row(cat[0], "Catalog", cat[1]),
       ...srcRows,
+      ...helperRows,
     ].join("");
     const anyOk = Object.values(h.sources || {}).some((v) => v.ok);
     pierre(sprite, h.signing && anyOk ? "happy" : "shrug", { scale: 3 });

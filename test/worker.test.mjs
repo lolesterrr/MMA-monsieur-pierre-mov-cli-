@@ -244,3 +244,20 @@ test("complaints are rate limited per visitor", async () => {
   assert.equal((await send(2)).status, 201);
   assert.equal((await send(3)).status, 429);
 });
+
+test("the lookup helper's links play through the worker (shared SIGNING_KEY, RELAY_ORIGIN)", async () => {
+  const helper = createHandler();
+  const helperEnv = { ...env, RELAY_ORIGIN: `${ORIGIN}/`, SERVERS: "videasy,hexa" };
+  const res = await helper(new Request(`https://helper.test${movie("tt0000101", "9101", "The Grand Budapest Nap", "2014")}`), helperEnv);
+  const body = await res.json();
+  assert.equal(body.server, "videasy");
+  assert.ok(body.master.startsWith(`${ORIGIN}/p?`), body.master);
+  assert.ok(body.subtitles.every((s) => s.url.startsWith(`${ORIGIN}/p?`)));
+  const health = await (await helper(new Request("https://helper.test/api/health"), helperEnv)).json();
+  assert.equal(health.name, "MMA lookup helper");
+  assert.deepEqual(health.servers, ["videasy", "hexa"]);
+  // the worker (no RELAY_ORIGIN, same key) relays it
+  const master = await ask(body.master);
+  assert.equal(master.status, 200);
+  assert.match(await master.text(), /^#EXTM3U/);
+});

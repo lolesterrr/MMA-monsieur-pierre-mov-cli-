@@ -206,10 +206,10 @@ export async function render(main, params, ctx, route) {
       return;
     }
     if (ctx.signal.aborted) return;
-    state.current = { ...state.current, server: `${src.name}${server === "auto" ? " (auto)" : ""}` };
+    state.current = { ...state.current, server: `${src.name}${server === "auto" ? " (auto)" : ""}${src.via === "lookup" ? ", found by the Deno helper" : ""}` };
     usingDirect = Boolean(src.direct);
     mountVideo(resumeAt);
-    if (server === "auto") toast(`Playing from ${src.name}`);
+    if (server === "auto" || src.via === "lookup") toast(`Playing from ${src.name}${src.via === "lookup" ? ", found by the Deno helper" : ""}${src.direct ? ", straight from the source" : ""}`);
   }
 
   function mountVideo(resumeAt) {
