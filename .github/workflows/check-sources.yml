@@ -1,0 +1,29 @@
+# The early warning: runs the worker code against the real sources every Monday (and on demand),
+# all the way to a video segment through the relay. When a source changes, this goes red at
+# the server that broke. Fixes usually come from the enc-dec.app samples
+# (github.com/smy778/EncDecEndpoints) or StreamViva's providers (github.com/loak7993-code/streamviva-providers).
+# It doesn't touch the deployed worker; "Check the worker" does that.
+name: Check the sources
+
+on:
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      movie:
+        description: IMDb id of a movie
+        default: tt1375666
+      series:
+        description: IMDb id of a series, then season and episode
+        default: tt0903747 1 1
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node tools/live-check.mjs ${{ inputs.movie || 'tt1375666' }} ${{ inputs.series || 'tt0903747 1 1' }}

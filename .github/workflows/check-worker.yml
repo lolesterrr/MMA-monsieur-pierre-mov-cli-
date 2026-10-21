@@ -1,0 +1,95 @@
+# A button for "is the worker OK?": Actions > Check the worker > Run workflow.
+# It walks the whole path a viewer takes, using the worker address in web/config.js:
+# health, the catalog, stream links, then the playlist, a video segment and the subtitles
+# through the relay. The first step that goes red is where it breaks.
+name: Check the worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      imdb:
+        description: IMDb id of a movie (or a series, with season and episode below)
+        default: tt1375666
+      episode:
+        description: For a series, season and episode, like "1 1". Leave empty for a movie.
+        default: ""
+      server:
+        description: auto, videasy, lookmovie or hexa
+        default: auto
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      IMDB: ${{ inputs.imdb || 'tt1375666' }}
+      EPISODE: ${{ inputs.episode }}
+      SERVER: ${{ inputs.server || 'auto' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Worker address
+        run: |
+          api=$(sed -nE 's|^[[:space:]]*api: "([^"]+)".*|\1|p' web/config.js)
+          echo "Using $api"
+          echo "API=$api" >> "$GITHUB_ENV"
+
+      - name: Health, and every source playing Inception
+        run: |
+          curl -sSf "$API/api/health?deep=1" | tee health.json; echo
+          jq -e '.signing == true' health.json > /dev/null || { echo "::error::SIGNING_KEY is missing"; exit 1; }
+          jq -r '.sources | to_entries[] | "\(.key): \(if .value.ok then "plays" else .value.message end)"' health.json
+          jq -e '.upstream == "ok"' health.json > /dev/null || { echo "::error::No source plays from the worker. See the lines above."; exit 1; }
+
+      - name: Catalog
+        run: |
+          if [ -n "$EPISODE" ]; then TYPE=series; else TYPE=movie; fi
+          curl -sSf "https://v3-cinemeta.strem.io/meta/$TYPE/$IMDB.json" > meta.json
+          jq -r '.meta | "\(.name) (\(.releaseInfo)), TMDB \(.moviedb_id)"' meta.json
+          echo "TYPE=$TYPE" >> "$GITHUB_ENV"
+
+      - name: Stream links
+        run: |
+          read S E <<< "$EPISODE"
+          curl -sS -G "$API/api/sources" --data-urlencode "type=$TYPE" --data-urlencode "imdb=$IMDB" \
+            --data-urlencode "tmdb=$(jq -r '.meta.moviedb_id // empty' meta.json)" --data-urlencode "title=$(jq -r .meta.name meta.json)" \
+            --data-urlencode "year=$(jq -r .meta.releaseInfo meta.json)" --data-urlencode "s=$S" --data-urlencode "e=$E" --data-urlencode "server=$SERVER" > src.json
+          jq '{server: .name, direct: (.direct != null), subtitles: [.subtitles[]?.label], tried, error, message}' src.json
+          jq -e '.master' src.json > /dev/null || { echo "::error::$(jq -r .message src.json)"; exit 1; }
+
+      - name: Playlist through the relay
+        run: |
+          curl -sSf "$(jq -r .master src.json)" > master.m3u8
+          head -c 400 master.m3u8 | sed -E 's|t=[^&]*|t=...|g'; echo
+          grep -q '^#EXTM3U' master.m3u8 || { echo "::error::The master playlist isn't a playlist"; exit 1; }
+          if grep -q '#EXT-X-STREAM-INF' master.m3u8; then
+            # the last variant is the smallest
+            variant=$(grep '^http' master.m3u8 | tail -1)
+            curl -sSf "$variant" > media.m3u8
+          else
+            cp master.m3u8 media.m3u8
+          fi
+          seg=$(grep -m1 '^http' media.m3u8)
+          [ -n "$seg" ] || { echo "::error::No segments in the media playlist"; exit 1; }
+          echo "SEG=$seg" >> "$GITHUB_ENV"
+
+      - name: A video segment through the relay
+        run: |
+          curl -sS -o seg.bin -w "HTTP %{http_code}, %{size_download} bytes, %{content_type}\n" "$SEG" | tee seg.txt
+          grep -q "HTTP 20[06]" seg.txt || { echo "::error::The stream host refused the segment"; exit 1; }
+          [ "$(stat -c %s seg.bin)" -gt 1000 ] || { echo "::error::The segment is suspiciously small"; exit 1; }
+
+      - name: Subtitles through the relay
+        run: |
+          sub=$(jq -r '.subtitles[0].url // empty' src.json)
+          if [ -z "$sub" ]; then echo "No subtitles for this one"; exit 0; fi
+          curl -sSf "$sub" | head -4
+
+      - name: What it costs
+        # Cloudflare's free plan allows 100,000 worker requests a day, and every relayed segment is one
+        run: |
+          read n total <<< "$(grep -oE '^#EXTINF:[0-9.]+' media.m3u8 | cut -d: -f2 | awk '{s+=$1} END {printf "%d %.0f", NR, s}')"
+          avg=$(awk -v t="$total" -v n="$n" 'BEGIN {printf "%.1f", t/n}')
+          movie=$(awk -v a="$avg" 'BEGIN {printf "%d", 7200/a + 8}')
+          ep=$(awk -v a="$avg" 'BEGIN {printf "%d", 2700/a + 8}')
+          if jq -e '.direct' src.json > /dev/null; then note=" This server plays straight from the stream host in most browsers, so it usually costs almost nothing."; fi
+          echo "::notice title=Request budget::$(jq -r .name src.json): $n segments of about ${avg}s. Through the relay a 2 hour movie costs about $movie requests and a 45 minute episode about $ep, so roughly $((100000 / movie)) movies or $((100000 / ep)) episodes a day on the free plan, shared with any other worker on the account.$note"
