@@ -111,9 +111,18 @@ async function sources(params, opts = {}) {
       ? request("/api/sources", { params, timeout: 45000, ...opts, signal: ctrls[0].signal })
       : getJson(helper + "/api/sources" + query(params), { timeout: 45000, who: "worker", ...opts, signal: ctrls[1].signal }).then((r) => ({ ...r, via: "lookup" }));
   const attempts = [ask(0), ask(1)];
+  // Videasy has several qualities (up to 4K), the others one. So when the first answer isn't
+  // Videasy, give the other side a few seconds to come back with Videasy before settling.
+  const best = (r) => r && r.server === "videasy";
   try {
-    const res = await Promise.any(attempts.map((p, i) => p.then((r) => (ctrls[1 - i].abort(), r))));
-    return res;
+    const first = await Promise.any(attempts.map((p, i) => p.then((r) => ({ r, i }))));
+    if (best(first.r)) {
+      ctrls[1 - first.i].abort();
+      return first.r;
+    }
+    const other = await Promise.race([attempts[1 - first.i].catch(() => null), new Promise((r) => setTimeout(() => r(null), 4000))]);
+    ctrls[1 - first.i].abort();
+    return best(other) ? other : first.r;
   } catch (agg) {
     if (outer && outer.aborted) throw new ApiError("aborted", "Cancelled.");
     const [a, b] = agg.errors;

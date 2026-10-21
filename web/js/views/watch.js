@@ -345,7 +345,8 @@ export async function render(main, params, ctx, route) {
     const sel = main.querySelector("[data-quality]");
     const levels = hls.levels.map((l, i) => ({ i, h: l.height || 0, b: l.bitrate })).sort((a, b) => b.h - a.h || b.b - a.b);
     const label = (h, b) => (h >= 2160 ? "4K" : h ? `${h}p` : `${Math.round(b / 1000)} kbps`);
-    sel.innerHTML = `<option value="-1">Auto</option>` + levels.map((l) => `<option value="${l.i}">${label(l.h, l.b)}</option>`).join("");
+    // one quality only (Hexa): nothing to choose
+    sel.innerHTML = levels.length < 2 ? `<option value="-1">Only one</option>` : `<option value="-1">Auto</option>` + levels.map((l) => `<option value="${l.i}">${label(l.h, l.b)}</option>`).join("");
     sel.disabled = levels.length < 2;
     const pref = prefs.get().quality;
     const match = levels.find((l) => l.h === pref);
