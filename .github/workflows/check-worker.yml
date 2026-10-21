@@ -93,3 +93,14 @@ jobs:
           ep=$(awk -v a="$avg" 'BEGIN {printf "%d", 2700/a + 8}')
           if jq -e '.direct' src.json > /dev/null; then note=" This server plays straight from the stream host in most browsers, so it usually costs almost nothing."; fi
           echo "::notice title=Request budget::$(jq -r .name src.json): $n segments of about ${avg}s. Through the relay a 2 hour movie costs about $movie requests and a 45 minute episode about $ep, so roughly $((100000 / movie)) movies or $((100000 / ep)) episodes a day on the free plan, shared with any other worker on the account.$note"
+
+  reach:
+    # The sources refuse lookups from Cloudflare. This checks whether the worker can still carry
+    # the video once a link is found somewhere else.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node tools/reach-check.mjs "$(sed -nE 's|^[[:space:]]*api: "([^"]+)".*|\1|p' web/config.js)"

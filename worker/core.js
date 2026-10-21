@@ -905,6 +905,31 @@ export function createHandler(hooks = {}) {
           const m = { type, imdb, tmdb, s, e, server, title: clean(p.get("title"), 200), year: (clean(p.get("year"), 20).match(/\d{4}/) || [""])[0], fresh: p.get("fresh") === "1" };
           return json(request, env, 200, await sources(request, env, cfg, m));
         }
+        case "/api/reach": {
+          // Can this worker reach a stream host? Answers with the status and size only, never the
+          // content, so it can't be used as a proxy. The "Check the worker" workflow uses it.
+          let target;
+          try {
+            target = new URL(p.get("u") || "");
+          } catch {
+            throw new HttpError(400, "bad_url", "Which URL?");
+          }
+          if (!/^https:$/.test(target.protocol)) throw new HttpError(400, "bad_url", "https only.");
+          if (rateLimited(`r:${ip}`, 20, 60e3)) throw new HttpError(429, "slow_down", "Slow down.");
+          const referer = p.get("ref") || "";
+          const headers = { "User-Agent": UA, Accept: "*/*", Range: "bytes=0-2047" };
+          if (referer) {
+            headers.Referer = referer;
+            headers.Origin = referer.replace(/\/$/, "");
+          }
+          try {
+            const r = await upstream(target.href, { headers, redirect: "follow", signal: AbortSignal.timeout(10000) }, "media");
+            const buf = new Uint8Array(await r.arrayBuffer());
+            return json(request, env, 200, { status: r.status, bytes: buf.length, playlist: dec.decode(buf.slice(0, 7)) === "#EXTM3U", server: r.headers.get("server") });
+          } catch (e) {
+            return json(request, env, 200, { status: 0, error: e.message });
+          }
+        }
         case "/api/servers":
           return json(request, env, 200, { servers: listServers(p.get("type") === "series" ? "series" : p.get("type") === "movie" ? "movie" : "") });
         default:
