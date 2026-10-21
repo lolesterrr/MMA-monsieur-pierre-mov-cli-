@@ -604,6 +604,9 @@ export function createHandler(hooks = {}) {
     if (!env.SIGNING_KEY) throw new HttpError(501, "setup", "The worker has no SIGNING_KEY yet, so it can't relay video. Add it in the worker's settings.");
     const fits = (id) => SERVERS[id].types.includes(m.type);
     const order = m.server === "auto" ? cfg.order.filter(fits) : [m.server];
+    if (m.server !== "auto" && cfg.relayOrigin && !cfg.order.includes(m.server)) {
+      throw new HttpError(404, "no_source", `The lookup helper doesn't use ${SERVERS[m.server].name}.`, { tried: [] });
+    }
     if (m.server !== "auto" && !fits(m.server)) {
       throw new HttpError(404, "no_source", `${SERVERS[m.server].name} doesn't do ${m.type === "series" ? "series" : "movies"}.`, { tried: [] });
     }
@@ -613,6 +616,13 @@ export function createHandler(hooks = {}) {
     let server = null;
     for (const id of order) {
       const cacheKey = `s:${id}:${m.type}:${m.imdb}:${m.s}:${m.e}`;
+      // a server that just refused this worker (403, 429, bot check) gets skipped for a while on
+      // "auto", so nobody waits for the same no again. Picking it by hand still asks.
+      const refused = memoGet(`refused:${id}`);
+      if (refused && m.server === "auto") {
+        tried.push({ server: id, name: SERVERS[id].name, error: "refused", message: `${refused} (skipped for now)` });
+        continue;
+      }
       try {
         let res = m.fresh ? undefined : memoGet(cacheKey);
         if (!res) {
@@ -627,6 +637,7 @@ export function createHandler(hooks = {}) {
         break;
       } catch (e) {
         tried.push({ server: id, name: SERVERS[id].name, error: e.code || "error", message: e.message || String(e) });
+        if (e.code === "blocked" || /HTTP (403|429)\b/.test(e.message || "")) memoSet(`refused:${id}`, e.message, 15 * 60e3);
       }
     }
     if (!got) {

@@ -173,6 +173,12 @@ test("Cloudflare's bot check everywhere shows up as blocked", async () => {
   } finally {
     fake.set({ blocked: false });
   }
+  // and on "auto" the worker doesn't ask LookMovie again for a while
+  const again = await askJson(movie("tt0000102", "9102", "Napocalypse Now", "1979"));
+  assert.equal(again.status, 404);
+  assert.match(again.body.tried.find((t) => t.server === "lookmovie").message, /skipped for now/);
+  // picking it by hand still asks
+  assert.equal((await askJson(movie("tt0000102", "9102", "Napocalypse Now", "1979", "&server=lookmovie"))).body.server, "lookmovie");
 });
 
 test("bad requests", async () => {
@@ -256,6 +262,8 @@ test("the lookup helper's links play through the worker (shared SIGNING_KEY, REL
   const health = await (await helper(new Request("https://helper.test/api/health"), helperEnv)).json();
   assert.equal(health.name, "MMA lookup helper");
   assert.deepEqual(health.servers, ["videasy", "hexa"]);
+  const lm = await helper(new Request(`https://helper.test${movie("tt0000102", "9102", "Napocalypse Now", "1979", "&server=lookmovie")}`), helperEnv);
+  assert.match((await lm.json()).message, /doesn't use LookMovie/);
   // the worker (no RELAY_ORIGIN, same key) relays it
   const master = await ask(body.master);
   assert.equal(master.status, 200);

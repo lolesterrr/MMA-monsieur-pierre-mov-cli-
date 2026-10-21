@@ -94,24 +94,37 @@ export function lookupBase() {
   return String(config().lookup || "").trim().replace(/\/+$/, "");
 }
 
-/** Ask the worker; when it comes back empty-handed, ask the lookup helper too. */
-async function sources(params, opts) {
-  let first;
-  try {
-    return await request("/api/sources", { params, timeout: 45000, ...opts });
-  } catch (e) {
-    first = e;
-  }
+/**
+ * Ask the worker and the lookup helper at the same time and take whichever finds a stream
+ * first (the other one is cancelled). Waiting for the worker to give up before asking the
+ * helper made every start slow, because some servers refuse Cloudflare.
+ */
+async function sources(params, opts = {}) {
   const helper = lookupBase();
-  if (!helper || !["no_source", "blocked", "upstream", "timeout"].includes(first.code)) throw first;
+  if (!helper) return request("/api/sources", { params, timeout: 45000, ...opts });
+  const ctrls = [new AbortController(), new AbortController()];
+  const outer = opts.signal;
+  const onAbort = () => ctrls.forEach((c) => c.abort());
+  if (outer) outer.addEventListener("abort", onAbort, { once: true });
+  const ask = (i) =>
+    i === 0
+      ? request("/api/sources", { params, timeout: 45000, ...opts, signal: ctrls[0].signal })
+      : getJson(helper + "/api/sources" + query(params), { timeout: 45000, who: "worker", ...opts, signal: ctrls[1].signal }).then((r) => ({ ...r, via: "lookup" }));
+  const attempts = [ask(0), ask(1)];
   try {
-    const res = await getJson(helper + "/api/sources" + query(params), { timeout: 45000, who: "worker", ...opts });
-    return { ...res, via: "lookup", tried: [...((first.data && first.data.tried) || []), ...(res.tried || [])] };
-  } catch (e) {
-    if (e.code === "aborted") throw e;
-    if (e.code !== "no_source") throw first;
-    const tried = [...((first.data && first.data.tried) || []), ...((e.data && e.data.tried) || []).map((t) => ({ ...t, name: `${t.name} (via Deno)` }))];
-    throw new ApiError("no_source", e.message, { status: 404, data: { ...e.data, tried } });
+    const res = await Promise.any(attempts.map((p, i) => p.then((r) => (ctrls[1 - i].abort(), r))));
+    return res;
+  } catch (agg) {
+    if (outer && outer.aborted) throw new ApiError("aborted", "Cancelled.");
+    const [a, b] = agg.errors;
+    if (a.code === "no_source" && b.code === "no_source") {
+      const tried = [...((a.data && a.data.tried) || []), ...((b.data && b.data.tried) || []).map((t) => ({ ...t, name: `${t.name} (via Deno)` }))].filter((t) => t.error !== "refused");
+      throw new ApiError("no_source", a.message, { status: 404, data: { ...a.data, tried } });
+    }
+    // the more useful of the two errors: a real "nothing here" beats "couldn't reach"
+    throw a.code === "no_source" || a.code === "setup" ? a : b.code === "no_source" ? b : a;
+  } finally {
+    if (outer) outer.removeEventListener("abort", onAbort);
   }
 }
 

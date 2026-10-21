@@ -269,7 +269,18 @@ export async function render(main, params, ctx, route) {
       );
     }
     if (Hls && Hls.isSupported()) {
-      hls = new Hls({ enableWorker: true, backBufferLength: 90, maxBufferLength: 40, startPosition: startAt ?? -1 });
+      // keep up to 90 seconds ahead (more when the connection allows), start low and climb
+      hls = new Hls({
+        enableWorker: true,
+        backBufferLength: 30,
+        maxBufferLength: 90,
+        maxMaxBufferLength: 180,
+        maxBufferSize: 200 * 1000 * 1000,
+        startLevel: 0,
+        capLevelToPlayerSize: true,
+        abrEwmaDefaultEstimate: 1500000,
+        startPosition: startAt ?? -1,
+      });
       hls.on(Hls.Events.MANIFEST_PARSED, () => fillQuality());
       hls.on(Hls.Events.ERROR, (_, data) => onHlsError(Hls, data));
       hls.loadSource(url);
@@ -342,8 +353,8 @@ export async function render(main, params, ctx, route) {
       hls.currentLevel = match.i;
       sel.value = String(match.i);
     } else {
-      // don't start at 4K: Auto would happily pick it on a fast connection and burn data
-      const cap = levels.find((l) => l.h && l.h <= 1080);
+      // Auto stays at 720p or below unless you pick higher: smoother on slow connections, lighter on data
+      const cap = levels.find((l) => l.h && l.h <= 720);
       if (cap) hls.autoLevelCapping = cap.i;
     }
     sel.onchange = () => {
