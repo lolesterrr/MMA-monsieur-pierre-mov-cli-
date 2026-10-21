@@ -6,18 +6,22 @@ on:
       tv: { description: Series to search for, default: breaking bad }
       base: { description: Site, default: "https://flixhq.to" }
   push:
-    paths: [tools/probe.mjs, .github/workflows/probe.yml]
+    paths: [tools/probe.mjs, tools/matrix.mjs, .github/workflows/probe.yml]
 permissions:
   contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
-      - run: node tools/probe.mjs 2>&1 | tee probe-log.txt "${{ inputs.movie || 'the dark knight' }}" "${{ inputs.tv || 'breaking bad' }}"
-        env: { BASE: "${{ inputs.base || 'https://flixhq.to' }}" }
+      - name: Sources matrix
+        run: |
+          git clone -q --depth 1 https://github.com/loak7993-code/streamviva-providers svp
+          (cd svp && npm install --omit=dev --ignore-scripts --no-audit --no-fund >/dev/null 2>&1 || npm install --ignore-scripts --no-audit --no-fund >/dev/null)
+          node tools/matrix.mjs "$PWD/svp" 2>&1 | tee probe-log.txt
       - name: Push the findings to the probe branch
         if: always()
         run: |
