@@ -4,9 +4,9 @@ on:
     inputs:
       movie: { description: Movie to search for, default: the dark knight }
       tv: { description: Series to search for, default: breaking bad }
-      base: { description: Site, default: "https://flixhq.to" }
+      script: { description: Which probe, default: probe3 }
   push:
-    paths: [tools/probe.mjs, tools/matrix.mjs, .github/workflows/probe.yml]
+    paths: [tools/probe3.mjs, .github/workflows/probe.yml]
 permissions:
   contents: write
 jobs:
@@ -19,9 +19,7 @@ jobs:
         with: { node-version: 22 }
       - name: Sources matrix
         run: |
-          git clone -q --depth 1 https://github.com/loak7993-code/streamviva-providers svp
-          (cd svp && npm install --omit=dev --ignore-scripts --no-audit --no-fund >/dev/null 2>&1 || npm install --ignore-scripts --no-audit --no-fund >/dev/null)
-          node tools/matrix.mjs "$PWD/svp" 2>&1 | tee probe-log.txt
+          node tools/${{ inputs.script || 'probe3' }}.mjs 2>&1 | tee probe-log.txt
       - name: Push the findings to the probe branch
         if: always()
         run: |
