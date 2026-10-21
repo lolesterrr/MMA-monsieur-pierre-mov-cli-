@@ -1,0 +1,22 @@
+Movie: Inception (2010), tmdb 27205. Series: Breaking Bad, tmdb 1396.
+Health: {"lookmovie":{"ok":true,"ms":1699},"videasy":{"ok":true,"ms":2336},"hexa":{"ok":false,"error":"upstream","message":"Hexa answered HTTP 403.","ms":3394}}
+Movie, auto: Videasy in 955ms, 29 subtitles, direct false, tried before: none
+  master RESOLUTION=3840x2160 RESOLUTION=1920x1080 RESOLUTION=1280x720 RESOLUTION=852x480; 1481 segments, 148 min, avg 6.0s; first segment HTTP 200, 12439844 bytes, video/mp4
+  subtitle "English": WEBVTT 00:24.233 --> 00:27.31
+Movie, videasy: Videasy in 27ms, 29 subtitles, direct false, tried before: none
+  master RESOLUTION=3840x2160 RESOLUTION=1920x1080 RESOLUTION=1280x720 RESOLUTION=852x480; 1481 segments, 148 min, avg 6.0s; first segment HTTP 200, 12439844 bytes, video/mp4
+  subtitle "English": WEBVTT 00:24.233 --> 00:27.31
+Movie, lookmovie: LookMovie in 1660ms, 40 subtitles, direct false, tried before: none
+  master RESOLUTION=1920x1080 RESOLUTION=1280x720 RESOLUTION=854x480; 1111 segments, 148 min, avg 8.0s; first segment HTTP 200, 2842936 bytes, video/MP2T
+  subtitle "English": WEBVTT FILE 1 00:00:55.685
+Movie, hexa: Hexa in 2355ms, 29 subtitles, direct true, tried before: none
+  master (single); 889 segments, 148 min, avg 10.0s; first segment HTTP 200, 5426808 bytes, video/mp2t
+  direct link from the browser's side: HTTP 200, CORS *
+  subtitle "English": WEBVTT 1 00:05:57.000 --> 00:
+Series, auto: Videasy in 709ms, 24 subtitles, direct false, tried before: none
+  master RESOLUTION=3840x2160 RESOLUTION=1920x1080 RESOLUTION=1280x720 RESOLUTION=852x480; 584 segments, 58 min, avg 6.0s; first segment HTTP 200, 14069393 bytes, video/mp4
+  subtitle "English": WEBVTT 1 00:01:09.386 --> 00:
+Series, videasy: Videasy in 26ms, 24 subtitles, direct false, tried before: none
+  master RESOLUTION=3840x2160 RESOLUTION=1920x1080 RESOLUTION=1280x720 RESOLUTION=852x480; 584 segments, 58 min, avg 6.0s; first segment HTTP 200, 14069393 bytes, video/mp4
+  subtitle "English": WEBVTT 1 00:01:09.386 --> 00:
+Series, hexa: HTTP 404 no_source: Hexa: Hexa answered HTTP 403.
