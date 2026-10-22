@@ -1,5 +1,5 @@
 import { esc, fmtTime, toast, copyText } from "../util.js";
-import { api, catalog, seen, aired } from "../api.js";
+import { api, catalog, seen, aired, internetDown } from "../api.js";
 import { history, prefs, progress, epKey } from "../store.js";
 import { state, noteError } from "../state.js";
 import { hydrate, pierre } from "../pierre.js";
@@ -323,13 +323,18 @@ export async function render(main, params, ctx, route) {
         return;
       }
       const others = Object.keys(SERVER_TYPES).filter((k) => fitting(k) && k !== src.server);
-      showProblem(
-        { code: data.details, message: "The video stopped loading." },
-        {
-          body: `${src.name}'s stream host may be down, or the worker used up Cloudflare's free daily limit (it resets at midnight UTC). Another server might work.`,
-          extra: `<div class="row">${others.map((k) => `<button class="btn" type="button" data-try="${k}">Try ${SERVER_NAMES[k]}</button>`).join("")}</div>`,
-        },
-      );
+      // before blaming the stream host or the worker, check it isn't the visitor's internet
+      internetDown().then((down) => {
+        if (ctx.signal.aborted) return;
+        if (down) return showProblem({ code: "offline", message: "The video stopped loading because nothing answers." });
+        showProblem(
+          { code: data.details, message: "The video stopped loading." },
+          {
+            body: `${src.name}'s stream host may be down, or the worker used up Cloudflare's free daily limit (it resets at midnight UTC). Another server might work.`,
+            extra: `<div class="row">${others.map((k) => `<button class="btn" type="button" data-try="${k}">Try ${SERVER_NAMES[k]}</button>`).join("")}</div>`,
+          },
+        );
+      });
       return;
     }
     if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaRecoveries < 2) {

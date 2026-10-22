@@ -1,6 +1,6 @@
 import { esc, minutesLeft } from "../util.js";
 import { history, progress, recent, settings, epKey } from "../store.js";
-import { isConfigured, catalog, catalogBase, seen } from "../api.js";
+import { isConfigured, catalog, catalogBase, seen, internetDown } from "../api.js";
 import { hydrate } from "../pierre.js";
 import { poster, fixPosters, epCode, typeLabel } from "./common.js";
 
@@ -92,7 +92,7 @@ async function loadPopular(main, type, ctx) {
     metas = ((await res.json()).metas || []).filter((m) => /^tt\d+$/.test(m.imdb_id || m.id || "")).slice(0, 18);
   } catch {
     if (ctx.signal.aborted) return;
-    list.innerHTML = `<li class="fine">The catalog didn't answer. Search still works most of the time.</li>`;
+    list.innerHTML = (await internetDown()) ? `<li class="fine">Bro, your internet might be shit. Popular stuff shows up when it's back.</li>` : `<li class="fine">The catalog didn't answer. Search still works most of the time.</li>`;
     list.setAttribute("aria-busy", "false");
     return;
   }

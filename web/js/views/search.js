@@ -2,7 +2,7 @@ import { esc } from "../util.js";
 import { catalog, seen } from "../api.js";
 import { recent } from "../store.js";
 import { hydrate } from "../pierre.js";
-import { problem, fixPosters } from "./common.js";
+import { problem, fixPosters, judge } from "./common.js";
 import { showCard } from "./home.js";
 import { openDesk } from "../complaint.js";
 
@@ -54,7 +54,7 @@ export async function render(main, params, ctx) {
     seen.remember(list);
     if (!list.length) {
       section.innerHTML = `
-        ${head}
+        ${head}${judge(q)}
         <div class="empty empty-wide">
           <span data-pierre="sad" data-scale="4"></span>
           <div>
@@ -72,7 +72,7 @@ export async function render(main, params, ctx) {
     const draw = () => {
       const shown = filter === "all" ? list : list.filter((s) => s.type === filter);
       section.innerHTML = `
-        ${head}
+        ${head}${judge(q)}
         <div class="results-bar">
           <p class="count">${counts.movie === 1 ? "1 movie" : `${counts.movie} movies`}, ${counts.series === 1 ? "1 series" : `${counts.series} series`}</p>
           <div class="seg" role="radiogroup" aria-label="Show">
