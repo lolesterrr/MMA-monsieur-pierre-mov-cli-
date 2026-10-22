@@ -147,6 +147,8 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
     let m = url.pathname.match(/^\/catalog\/(movie|series)\/top\/search=([^/]*)\.json$/);
     if (m) {
       const q = decodeURIComponent(m[2]).toLowerCase();
+      // like the real Cinemeta now and then: one half of a search times out at the gateway
+      if (q === "pierre" && m[1] === "series") return send(res, 504, "<!DOCTYPE html><title>504 Gateway Time-out</title>", "text/html");
       const metas = all().filter((x) => x.type === m[1] && x.title.toLowerCase().includes(q)).map((x) => meta(x, host));
       return send(res, 200, { metas }, "application/json", cors);
     }

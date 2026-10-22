@@ -73,6 +73,11 @@ export async function render(main, params, ctx) {
       const shown = filter === "all" ? list : list.filter((s) => s.type === filter);
       section.innerHTML = `
         ${head}${judge(q)}
+        ${
+          list.missing && list.missing.length
+            ? `<p class="half-missing fine" role="status">The catalog didn't send the ${list.missing[0] === "series" ? "series" : "movies"} for this search, so only ${list.missing[0] === "series" ? "movies" : "series"} are here. <button class="link-btn" type="button" data-again>Search again</button></p>`
+            : ""
+        }
         <div class="results-bar">
           <p class="count">${counts.movie === 1 ? "1 movie" : `${counts.movie} movies`}, ${counts.series === 1 ? "1 series" : `${counts.series} series`}</p>
           <div class="seg" role="radiogroup" aria-label="Show">
@@ -84,6 +89,12 @@ export async function render(main, params, ctx) {
         <ul class="grid">${shown.map(showCard).join("")}</ul>`;
       hydrate(section);
       fixPosters(section, hydrate);
+      const again = section.querySelector("[data-again]");
+      if (again) again.addEventListener("click", () => {
+        section.innerHTML = `${head}<div class="loading"><span data-pierre="search" data-scale="4"></span><p class="bubble bubble-left">Looking again…</p></div>`;
+        hydrate(section);
+        load();
+      });
       for (const b of section.querySelectorAll("[data-filter]")) {
         b.addEventListener("click", () => {
           filter = b.dataset.filter;

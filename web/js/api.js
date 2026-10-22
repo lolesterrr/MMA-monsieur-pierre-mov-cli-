@@ -185,25 +185,43 @@ function card(m, type) {
 
 export const catalog = {
   /** Movies and series in one list, best matches first. */
+  /**
+   * Movies and series in one list, best matches first. Cinemeta sometimes answers one half with
+   * an error or very slowly, so each half gets a second try, and the list says which half is
+   * still missing (list.missing) instead of quietly showing only the other one.
+   */
   async search(q, opts = {}) {
+    const url = (type) => `${catalogBase()}/catalog/${type}/top/search=${encodeURIComponent(q)}.json`;
+    const get = (type) => getJson(url(type), { who: "catalog", cache: 10 * 60e3, timeout: 12000, ...opts });
     const one = (type) =>
-      getJson(`${catalogBase()}/catalog/${type}/top/search=${encodeURIComponent(q)}.json`, { who: "catalog", cache: 10 * 60e3, timeout: 15000, ...opts }).then(
-        (d) => ((d && d.metas) || []).filter((m) => /^tt\d+$/.test(m.imdb_id || m.id || "")).map((m) => card(m, type)),
-        (e) => {
-          if (e.code === "aborted") throw e;
-          return e;
-        },
-      );
+      get(type)
+        .catch((e) => {
+          if (e.code === "aborted" || e.code === "offline") throw e;
+          return get(type);
+        })
+        .then(
+          (d) => ((d && d.metas) || []).filter((m) => /^tt\d+$/.test(m.imdb_id || m.id || "")).map((m) => card(m, type)),
+          (e) => {
+            if (e.code === "aborted") throw e;
+            return e;
+          },
+        );
     const [movies, series] = await Promise.all([one("movie"), one("series")]);
     if (movies instanceof Error && series instanceof Error) throw movies;
     const a = movies instanceof Error ? [] : movies;
     const b = series instanceof Error ? [] : series;
     // interleave so the top movie and the top series both show up first
-    const out = [];
+    const mixed = [];
     for (let i = 0; i < Math.max(a.length, b.length); i++) {
-      if (a[i]) out.push(a[i]);
-      if (b[i]) out.push(b[i]);
+      if (a[i]) mixed.push(a[i]);
+      if (b[i]) mixed.push(b[i]);
     }
+    // then exact title matches go to the very top, and titles that start with the search next
+    const norm = (t) => String(t || "").toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    const want = norm(q);
+    const rank = (c) => (norm(c.title) === want ? 0 : norm(c.title).startsWith(want) ? 1 : 2);
+    const out = mixed.map((c, i) => [rank(c), i, c]).sort((x, y) => x[0] - y[0] || x[1] - y[1]).map((x) => x[2]);
+    out.missing = [movies instanceof Error ? "movie" : null, series instanceof Error ? "series" : null].filter(Boolean);
     return out;
   },
 

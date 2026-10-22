@@ -171,6 +171,14 @@ def run_desktop(p, scheme="light"):
     shot(page, f"backstage{sfx}")
     page.keyboard.press("Escape")
 
+    # Cinemeta drops the series half of a search: say so instead of quietly showing only movies
+    page.goto(BASE + "/#/search?q=pierre")
+    expect(page.locator(".grid .show")).to_have_count(1)
+    expect(page.locator(".half-missing")).to_contain_text("didn't send the series")
+    # and an exact title goes to the top
+    page.goto(BASE + "/#/search?q=breaking%20nap")
+    expect(page.locator(".grid .show-title").first).to_have_text("Breaking Nap")
+
     # Pierre judges spicy searches (and still searches)
     page.goto(BASE + "/#/search?q=hentai")
     expect(page.locator(".judge .bubble")).to_have_text("I know what kind of man you are.")
@@ -225,7 +233,7 @@ with sync_playwright() as p:
 
 # expected API failures (the no-server movie) show up as failed loads; the assertions above
 # already check how the UI handles them
-noise = [e for e in errors if "favicon" not in e and "Failed to load resource" not in e]
+noise = [e for e in errors if "favicon" not in e and "Failed to load resource" not in e and "search=pierre.json" not in e]
 if noise:
     print("\n".join(noise))
     sys.exit(1)
