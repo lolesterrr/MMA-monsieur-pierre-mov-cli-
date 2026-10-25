@@ -90,6 +90,9 @@ def run_desktop(p, scheme="light"):
     playing(page, 0.5)
     tracks = page.evaluate("() => [...document.querySelector('video').textTracks].map(t => t.label)")
     assert tracks == ["English", "French", "German"], tracks
+    # and it plays straight from LookMovie's host, not through the relay
+    lm = page.evaluate("() => performance.getEntriesByType('resource').map(e => e.name).filter(n => n.includes('/lm/'))")
+    assert lm and all("/p?" not in n and "/m?" not in n for n in lm), lm
     # the subtitle choice stuck
     page.wait_for_function("() => [...document.querySelector('video').textTracks].some(t => t.label === 'English' && t.mode === 'showing')")
 

@@ -9,7 +9,7 @@
  * the TMDB id Cinemeta also knows), it asks the stream sources for a link:
  *
  *   videasy    movies and series   api.wecollege.net, decrypted by enc-dec.app   needs its referer
- *   lookmovie  movies              lmscript.xyz                                  open
+ *   lookmovie  movies              lmscript.xyz                                  open, plays direct
  *   hexa       movies and series   theemoviedb.hexa.su, decrypted by enc-dec.app open, plays direct
  *   autoembed  movies and series   tom.autoembed.cc, plain JSON, no decrypting    needs its referer
  *
@@ -65,7 +65,7 @@ const UA =
 
 const SERVERS = {
   videasy: { id: "videasy", name: "Videasy", types: ["movie", "series"], note: "Up to 4K" },
-  lookmovie: { id: "lookmovie", name: "LookMovie", types: ["movie"], note: "Lots of subtitles" },
+  lookmovie: { id: "lookmovie", name: "LookMovie", types: ["movie"], note: "Lots of subtitles, plays direct" },
   hexa: { id: "hexa", name: "Hexa", types: ["movie", "series"], note: "Slow to start, light on the worker" },
   autoembed: { id: "autoembed", name: "AutoEmbed", types: ["movie", "series"], note: "One quality, by IMDb id" },
 };
@@ -544,9 +544,12 @@ function createHandler(hooks = {}) {
       .sort((a, b) => b.h - a.h);
     if (!variants.length) throw new HttpError(404, "no_source", "LookMovie has this one but no stream right now.");
     const auto = streams.auto && /^https?:/.test(streams.auto) ? streams.auto : null;
+    // Its video host turns Cloudflare away (a segment comes back as 11 bytes) but sends CORS *,
+    // so the browser plays it straight from there: the "auto" playlist, or else the best quality.
     return {
       master: auto,
       variants: auto ? [] : variants,
+      direct: auto || variants[0].u,
       referer: "",
       subtitles: ((view && view.subtitles) || [])
         .filter((s) => s && s.url)
@@ -689,7 +692,8 @@ function createHandler(hooks = {}) {
       type: m.type,
       imdb: m.imdb,
       master,
-      direct: got.direct && got.master ? got.master : null,
+      // true: play the master straight from the host. A link: play that one straight.
+      direct: typeof got.direct === "string" ? got.direct : got.direct && got.master ? got.master : null,
       subtitles: allSubs.map((s) => ({ label: s.label, lang: s.lang, url: relayUrl(origin, token, s.url, s.srt ? "&f=vtt" : "") })),
       servers: listServers(m.type),
       tried,

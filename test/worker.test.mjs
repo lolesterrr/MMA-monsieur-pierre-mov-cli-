@@ -108,12 +108,17 @@ test("a movie on videasy plays through the relay with videasy's referer", async 
   assert.match(await vtt.text(), /^WEBVTT\n\n1\n00:00:00\.500 --> 00:00:04\.000\nHallo/);
 });
 
-test("auto falls back to lookmovie, which gets a made-up master and its own subtitles", async () => {
+test("auto falls back to lookmovie: a direct link, a made-up master as the fallback, its own subtitles", async () => {
   const { status, body } = await askJson(movie("tt0000102", "9102", "Napocalypse Now", "1979"));
   assert.equal(status, 200);
   assert.equal(body.server, "lookmovie");
   assert.deepEqual(body.tried.map((t) => t.server), ["videasy"]);
   assert.ok(body.master.startsWith(`${ORIGIN}/m?`));
+  // and a direct link to its best quality, which the browser tries first
+  assert.match(body.direct, /^http:\/\/127\.0\.0\.1:\d+\/lm\/tt0000102\/720\/index\.m3u8$/);
+  const direct = await fetch(body.direct, { headers: { Origin: "https://lolesterrr.github.io" } });
+  assert.equal(direct.headers.get("access-control-allow-origin"), "*");
+  assert.match(await direct.text(), /^#EXTM3U/);
   assert.deepEqual(body.subtitles.map((s) => s.label), ["English", "French", "German"]);
   const master = await (await ask(body.master)).text();
   assert.match(master, /RESOLUTION=1280x720\nhttps:\/\/w\.test\/p\?/);

@@ -26,7 +26,7 @@ The catalog is public and answers browsers directly, so searching costs the work
 | Server | Has | How |
 | --- | --- | --- |
 | Videasy | movies and series, up to 4K | encrypted, decrypted by [enc-dec.app](https://enc-dec.app); the stream host wants Videasy's Referer, so the worker relays it |
-| LookMovie | movies, lots of subtitles | a plain JSON API; relayed |
+| LookMovie | movies, lots of subtitles | a plain JSON API; plays straight from its host |
 | Hexa | movies (series sometimes) | encrypted like Videasy; the stream is open, so the browser plays it directly and the worker isn't used for the video |
 
 If one has nothing, the next one gets asked. You can also pick a server on the watch page. Subtitles from [OpenSubtitles](https://www.opensubtitles.org) (through Stremio's add-on) are added to whatever the server has.
@@ -113,7 +113,7 @@ The site asks the worker first. When the worker comes back with nothing, it asks
    - `ALLOWED_ORIGINS`: `https://lolesterrr.github.io`
 4. **Create App**, copy its address and put it in `web/config.js` as `lookup`.
 
-Backstage then shows a "Deno helper" row, and the player says "found by the Deno helper" when it was the one that found the link. The helper tries Videasy and Hexa only (`SERVERS`), because LookMovie's video won't go through Cloudflare either.
+Backstage then shows a "Deno helper" row, and the player says "found by the Deno helper" when it was the one that found the link. The helper tries Videasy, LookMovie and Hexa (`SERVERS`). LookMovie's video host turns Cloudflare away too, but it lets any site play it, so the browser plays LookMovie straight from there and the relay is only a fallback.
 
 ## If a source won't talk to Cloudflare
 

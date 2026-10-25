@@ -242,12 +242,13 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
     // ---- lookmovie
     if (p === "/lookmovie/v1/movies") {
       const q = (url.searchParams.get("filters[q]") || "").toLowerCase();
-      const items = MOVIES.filter((x) => has(x, "l") && x.title.toLowerCase().includes(q)).map((x, i) => ({ id_movie: String(500 + i), title: x.title, year: x.year, imdb_id: x.id, slug: `${x.id.slice(2)}-${x.title.toLowerCase().replace(/\W+/g, "-")}-${x.year}` }));
+      // ids are fixed per movie, like the real ones, not positions in this search
+      const items = MOVIES.map((x, i) => [x, i]).filter(([x]) => has(x, "l") && x.title.toLowerCase().includes(q)).map(([x, i]) => ({ id_movie: String(500 + i), title: x.title, year: x.year, imdb_id: x.id, slug: `${x.id.slice(2)}-${x.title.toLowerCase().replace(/\W+/g, "-")}-${x.year}` }));
       return send(res, 200, { items });
     }
     if (p === "/lookmovie/v1/movies/view") {
       const idx = Number(url.searchParams.get("id")) - 500;
-      const x = MOVIES.filter((y) => has(y, "l"))[idx];
+      const x = has(MOVIES[idx], "l") ? MOVIES[idx] : null;
       if (!x) return send(res, 404, { message: "not found" });
       return send(res, 200, {
         id_movie: url.searchParams.get("id"),
