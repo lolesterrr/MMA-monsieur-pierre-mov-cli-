@@ -104,7 +104,7 @@ async function check() {
   try {
     if (!isConfigured()) throw Object.assign(new Error("Enter the worker's address first."), { code: "not_connected" });
     const h = await api.health(true);
-    const names = { videasy: "Videasy", lookmovie: "LookMovie", hexa: "Hexa" };
+    const names = { videasy: "Videasy", lookmovie: "LookMovie", hexa: "Hexa", autoembed: "AutoEmbed" };
     const srcRows = Object.entries(h.sources || {}).map(([k, v]) =>
       row(v.ok ? true : v.error === "blocked" ? false : null, names[k] || k, v.ok ? `Plays (${(v.ms / 1000).toFixed(1)}s)` : v.error === "blocked" || /HTTP (403|429)/.test(v.message || "") ? "Refuses Cloudflare's servers. The Deno helper or the local helper can get around it." : v.message),
     );

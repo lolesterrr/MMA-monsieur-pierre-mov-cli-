@@ -17,6 +17,8 @@ const cases = [
   ["movie", "videasy", "type=movie&imdb=tt1375666&tmdb=27205&title=Inception&year=2010"],
   ["movie", "lookmovie", "type=movie&imdb=tt1375666&tmdb=27205&title=Inception&year=2010"],
   ["movie", "hexa", "type=movie&imdb=tt1375666&tmdb=27205&title=Inception&year=2010"],
+  ["movie", "autoembed", "type=movie&imdb=tt1375666&tmdb=27205&title=Inception&year=2010"],
+  ["series", "autoembed", "type=series&imdb=tt0903747&tmdb=1396&title=Breaking%20Bad&year=2008&s=1&e=1"],
   ["series", "videasy", "type=series&imdb=tt0903747&tmdb=1396&title=Breaking%20Bad&year=2008&s=1&e=1"],
 ];
 for (const [kind, server, q] of cases) {

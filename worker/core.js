@@ -9,6 +9,7 @@
  *   videasy    movies and series   api.wecollege.net, decrypted by enc-dec.app   needs its referer
  *   lookmovie  movies              lmscript.xyz                                  open
  *   hexa       movies and series   theemoviedb.hexa.su, decrypted by enc-dec.app open, plays direct
+ *   autoembed  movies and series   tom.autoembed.cc, plain JSON, no decrypting    needs its referer
  *
  * mov-cli (https://github.com/mov-cli/mov-cli) is a framework without scrapers of its own, and
  * its movie plugins and lobster's flixhq source are gone, so the steps here follow the live
@@ -34,12 +35,12 @@
  *                    MMA repo. Without it, complaints fall back to a prefilled GitHub link.
  *   GITHUB_REPO      default lolesterrr/MMA-monsieur-pierre-mov-cli-
  *   ALLOWED_ORIGINS  comma separated, default * . e.g. https://lolesterrr.github.io,http://localhost:*
- *   SERVERS          order for "auto", default videasy,lookmovie,hexa
+ *   SERVERS          order for "auto", default videasy,lookmovie,hexa,autoembed
  *   RELAY_ORIGIN     set only on the lookup helper (deno/main.js): the Cloudflare worker's address.
  *                    Links it finds then play through that worker, which shares its SIGNING_KEY.
  *   COMPLAINTS_PER_10_MIN  per visitor, default 5
  *   HEALTH_TITLE     what the deep health check plays, "imdb,tmdb,title,year" (default Inception)
- *   ENCDEC_URL, VIDEASY_URL, LOOKMOVIE_URL, HEXA_URL, SUBS_URL   override hosts (tests, mirrors)
+ *   ENCDEC_URL, VIDEASY_URL, LOOKMOVIE_URL, HEXA_URL, AUTOEMBED_URL, SUBS_URL   override hosts (tests, mirrors)
  */
 
 export const VERSION = "1.0.0";
@@ -51,8 +52,9 @@ const DEFAULTS = {
   VIDEASY_URL: "https://api.wecollege.net",
   LOOKMOVIE_URL: "https://lmscript.xyz",
   HEXA_URL: "https://theemoviedb.hexa.su",
+  AUTOEMBED_URL: "https://tom.autoembed.cc",
   SUBS_URL: "https://opensubtitles-v3.strem.io",
-  SERVERS: "videasy,lookmovie,hexa",
+  SERVERS: "videasy,lookmovie,hexa,autoembed",
   TOKEN_TTL: 4 * 60 * 60,
 };
 
@@ -63,6 +65,7 @@ export const SERVERS = {
   videasy: { id: "videasy", name: "Videasy", types: ["movie", "series"], note: "Up to 4K" },
   lookmovie: { id: "lookmovie", name: "LookMovie", types: ["movie"], note: "Lots of subtitles" },
   hexa: { id: "hexa", name: "Hexa", types: ["movie", "series"], note: "Slow to start, light on the worker" },
+  autoembed: { id: "autoembed", name: "AutoEmbed", types: ["movie", "series"], note: "One quality, by IMDb id" },
 };
 
 const VIDEASY_REFERER = "https://player.videasy.to/";
@@ -419,6 +422,7 @@ function settings(env) {
     videasy: trim(env.VIDEASY_URL || DEFAULTS.VIDEASY_URL),
     lookmovie: trim(env.LOOKMOVIE_URL || DEFAULTS.LOOKMOVIE_URL),
     hexa: trim(env.HEXA_URL || DEFAULTS.HEXA_URL),
+    autoembed: trim(env.AUTOEMBED_URL || DEFAULTS.AUTOEMBED_URL),
     subs: trim(env.SUBS_URL || DEFAULTS.SUBS_URL),
     order: order.length ? order : DEFAULTS.SERVERS.split(","),
     ttl: Number(env.TOKEN_TTL) > 0 ? Number(env.TOKEN_TTL) : DEFAULTS.TOKEN_TTL,
@@ -568,7 +572,28 @@ export function createHandler(hooks = {}) {
     return { master: pick.url, variants: [], referer: "", direct: true, subtitles: [] };
   }
 
-  const RUN = { videasy, lookmovie, hexa };
+  /**
+   * AutoEmbed: one GET by IMDb id, plain JSON back ({ videoSource, subtitles? }), nothing to decrypt.
+   * Series ask for id=tt123/<season>/<episode>. The stream wants AutoEmbed's referer.
+   */
+  async function autoembed(cfg, m) {
+    if (!/^tt\d+$/.test(m.imdb || "")) throw new HttpError(404, "no_id", "AutoEmbed needs the IMDb id.");
+    const referer = `${cfg.autoembed}/`;
+    const id = m.type === "series" ? `${m.imdb}/${m.s}/${m.e}` : m.imdb;
+    const data = await callJson(`${cfg.autoembed}/api/getVideoSource?type=${m.type === "series" ? "tv" : "movie"}&id=${id}`, {
+      headers: { Referer: referer, Origin: cfg.autoembed },
+      what: "AutoEmbed",
+    });
+    const src = data && typeof data.videoSource === "string" ? data.videoSource : "";
+    if (!/^https?:\/\//.test(src)) throw new HttpError(404, "no_source", "AutoEmbed has nothing for this.");
+    const subs = (Array.isArray(data.subtitles) ? data.subtitles : [])
+      .map((s) => ({ s, url: s && (s.url || s.file) }))
+      .filter(({ url }) => typeof url === "string" && /^https?:\/\//.test(url))
+      .map(({ s, url }) => ({ ...language(s.lang || s.language || s.label), url, srt: /\.srt(\?|$)/i.test(url) }));
+    return { master: src, variants: [], referer, subtitles: subs };
+  }
+
+  const RUN = { videasy, lookmovie, hexa, autoembed };
 
   /** Does the playlist load? A source can hand out links that 403 or 404. */
   async function verify(url, referer) {

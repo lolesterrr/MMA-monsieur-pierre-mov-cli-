@@ -14,7 +14,7 @@ on:
         description: For a series, season and episode, like "1 1". Leave empty for a movie.
         default: ""
       server:
-        description: auto, videasy, lookmovie or hexa
+        description: auto, videasy, lookmovie, hexa or autoembed
         default: auto
 
 jobs:

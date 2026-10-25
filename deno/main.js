@@ -14,7 +14,7 @@
 import { createHandler } from "../worker/core.js";
 
 const handle = createHandler();
-const KEYS = ["SIGNING_KEY", "RELAY_ORIGIN", "SERVERS", "ALLOWED_ORIGINS", "HEALTH_TITLE", "TOKEN_TTL", "ENCDEC_URL", "VIDEASY_URL", "LOOKMOVIE_URL", "HEXA_URL", "SUBS_URL"];
+const KEYS = ["SIGNING_KEY", "RELAY_ORIGIN", "SERVERS", "ALLOWED_ORIGINS", "HEALTH_TITLE", "TOKEN_TTL", "ENCDEC_URL", "VIDEASY_URL", "LOOKMOVIE_URL", "HEXA_URL", "AUTOEMBED_URL", "SUBS_URL"];
 const env = Object.fromEntries(KEYS.map((k) => [k, Deno.env.get(k)]).filter(([, v]) => v));
 if (!env.SERVERS) env.SERVERS = "videasy,hexa";
 

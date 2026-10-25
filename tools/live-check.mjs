@@ -70,11 +70,11 @@ log(`Health: ${JSON.stringify(h.sources)}`);
 const mq = (server) => `type=movie&imdb=${movieId}&tmdb=${movie.moviedb_id || ""}&title=${encodeURIComponent(movie.name)}&year=${movie.releaseInfo || movie.year}&server=${server}`;
 const sq = (server) => `type=series&imdb=${seriesId}&tmdb=${series.moviedb_id || ""}&title=${encodeURIComponent(series.name)}&year=${series.releaseInfo || series.year}&s=${s}&e=${e}&server=${server}`;
 
-for (const server of ["auto", "videasy", "lookmovie", "hexa"]) {
+for (const server of ["auto", "videasy", "lookmovie", "hexa", "autoembed"]) {
   const ok = await walk(`Movie, ${server}`, mq(server)).catch((err) => (log(`  crashed: ${err.stack}`), false));
   if (server === "auto" && !ok) failures++;
 }
-for (const server of ["auto", "videasy", "hexa"]) {
+for (const server of ["auto", "videasy", "hexa", "autoembed"]) {
   const ok = await walk(`Series, ${server}`, sq(server)).catch((err) => (log(`  crashed: ${err.stack}`), false));
   if (server === "auto" && !ok) failures++;
 }

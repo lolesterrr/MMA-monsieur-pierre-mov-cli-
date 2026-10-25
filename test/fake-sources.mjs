@@ -1,7 +1,7 @@
 // Fake movie sources for tests and offline demos.
 //
 // Serves the same shapes the worker and the app talk to: Cinemeta (search, meta, popular),
-// videasy (seed + encrypted sources), enc-dec.app (decrypt), hexa, lookmovie, OpenSubtitles,
+// videasy (seed + encrypted sources), enc-dec.app (decrypt), hexa, lookmovie, autoembed, OpenSubtitles,
 // two stream hosts (one that insists on videasy's Referer, one that's open with CORS), and a
 // mock GitHub issues API. The catalog is made up.
 //
@@ -14,16 +14,16 @@ import { ensureMedia } from "./media.mjs";
 
 const VIDEASY_REFERER = "https://player.videasy.to/";
 
-// where each title can be found: v = videasy, h = hexa, l = lookmovie
+// where each title can be found: v = videasy, h = hexa, l = lookmovie, a = autoembed
 export const MOVIES = [
-  { id: "tt0000101", tmdb: "9101", title: "The Grand Budapest Nap", year: "2014", on: "vhl", hue: 12, genre: ["Comedy"], runtime: "100 min" },
+  { id: "tt0000101", tmdb: "9101", title: "The Grand Budapest Nap", year: "2014", on: "vhla", hue: 12, genre: ["Comedy"], runtime: "100 min" },
   { id: "tt0000102", tmdb: "9102", title: "Napocalypse Now", year: "1979", on: "l", hue: 40, genre: ["War", "Drama"], runtime: "147 min" },
-  { id: "tt0000103", tmdb: "9103", title: "Pierre Fiction", year: "1994", on: "h", hue: 200, genre: ["Crime"], runtime: "154 min" },
+  { id: "tt0000103", tmdb: "9103", title: "Pierre Fiction", year: "1994", on: "ha", hue: 200, genre: ["Crime"], runtime: "154 min" },
   { id: "tt0000104", tmdb: "9104", title: "The Nap Knight", year: "2008", on: "", hue: 280, genre: ["Action"], runtime: "152 min" },
   { id: "tt0000105", tmdb: "", title: "No Ids Here", year: "2001", on: "vhl", hue: 150, genre: ["Mystery"], runtime: "90 min" },
 ];
 export const SERIES = [
-  { id: "tt0000201", tmdb: "9201", title: "Breaking Nap", years: "2008–2013", on: "vh", hue: 100, genre: ["Drama"], seasons: [3, 2], specials: 1, upcoming: true },
+  { id: "tt0000201", tmdb: "9201", title: "Breaking Nap", years: "2008–2013", on: "vha", hue: 100, genre: ["Drama"], seasons: [3, 2], specials: 1, upcoming: true },
   { id: "tt0000202", tmdb: "9202", title: "Stranger Naps", years: "2016–", on: "v", hue: 330, genre: ["Sci-Fi"], seasons: [4], specials: 0 },
 ];
 
@@ -263,6 +263,17 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
     m = p.match(/^\/lookmovie\/storage\/tt\d+\/(en|fr|en2)\.vtt$/);
     if (m) return send(res, 200, VTT(m[1] === "fr" ? "fr" : "en"), "text/vtt", { "Access-Control-Allow-Origin": "*" });
 
+    // ---- autoembed: plain JSON by IMDb id, wants its own referer
+    if (p === "/autoembed/api/getVideoSource") {
+      if (req.headers.referer !== `${host.sources}/autoembed/`) return send(res, 403, "wrong referer", "text/plain");
+      const [id, se, ep] = String(url.searchParams.get("id") || "").split("/");
+      const x = find(id);
+      const type = url.searchParams.get("type");
+      if (!has(x, "a") || (type === "tv") !== (x.type === "series")) return send(res, 200, { error: "not found" });
+      const kind = type === "tv" ? `${x.id}/${se}/${ep}` : x.id;
+      return send(res, 200, { videoSource: `${host.open}/ae/${kind}/720/index.m3u8`, subtitles: [{ label: "English", file: `${host.open}/ae/${kind}/subs/en.vtt` }] });
+    }
+
     // ---- opensubtitles (stremio addon)
     m = p.match(/^\/subs\/subtitles\/(movie|series)\/(tt\d+)(?::\d+:\d+)?\.json$/);
     if (m) return send(res, 200, { subtitles: [{ id: "1", lang: "ger", url: `${host.sources}/subs/file/${m[2]}.srt` }, { id: "2", lang: "eng", url: `${host.sources}/subs/file/${m[2]}-en.srt` }] });
@@ -290,8 +301,9 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
     const cors = { "Access-Control-Allow-Origin": "*" };
     state.requests.push({ server: "open", path: url.pathname, headers: req.headers });
     if (req.method === "OPTIONS") return send(res, 204, "", "text/plain", { ...cors, "Access-Control-Allow-Headers": "*" });
-    const m = url.pathname.match(/^\/(hx|lm)\/(tt\d+)(?:\/\d+\/\d+)?\/(.+)$/);
+    const m = url.pathname.match(/^\/(hx|lm|ae)\/(tt\d+)(?:\/\d+\/\d+)?\/(.+)$/);
     if (!m || !mediaDir) return send(res, 404, "", "text/plain", cors);
+    if (m[3] === "subs/en.vtt") return send(res, 200, VTT("en"), "text/vtt", cors);
     return streamFile(req, res, mediaDir, m[3], cors);
   });
 
@@ -311,6 +323,7 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
       VIDEASY_URL: `${host.sources}/videasy`,
       LOOKMOVIE_URL: `${host.sources}/lookmovie`,
       HEXA_URL: `${host.sources}/hexa`,
+      AUTOEMBED_URL: `${host.sources}/autoembed`,
       SUBS_URL: `${host.sources}/subs`,
       GITHUB_API: `${host.sources}/github`,
     },

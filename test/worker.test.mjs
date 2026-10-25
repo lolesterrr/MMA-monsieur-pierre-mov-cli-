@@ -73,10 +73,10 @@ test("health says what's set up, and checks every source", async () => {
   const { body } = await askJson("/api/health");
   assert.equal(body.signing, true);
   assert.equal(body.complaints, true);
-  assert.deepEqual(body.servers, ["videasy", "lookmovie", "hexa"]);
+  assert.deepEqual(body.servers, ["videasy", "lookmovie", "hexa", "autoembed"]);
   const deep = await askJson("/api/health?deep=1");
   assert.equal(deep.body.upstream, "ok");
-  for (const s of ["videasy", "lookmovie", "hexa"]) assert.equal(deep.body.sources[s].ok, true, s);
+  for (const s of ["videasy", "lookmovie", "hexa", "autoembed"]) assert.equal(deep.body.sources[s].ok, true, s);
 });
 
 test("a movie on videasy plays through the relay with videasy's referer", async () => {
@@ -136,8 +136,8 @@ test("nothing anywhere: 404 with what every server said", async () => {
   const { status, body } = await askJson(movie("tt0000104", "9104", "The Nap Knight", "2008"));
   assert.equal(status, 404);
   assert.equal(body.error, "no_source");
-  assert.deepEqual(body.tried.map((t) => t.server), ["videasy", "lookmovie", "hexa"]);
-  assert.ok(body.servers.length === 3);
+  assert.deepEqual(body.tried.map((t) => t.server), ["videasy", "lookmovie", "hexa", "autoembed"]);
+  assert.ok(body.servers.length === 4);
 });
 
 test("no TMDB id: videasy and hexa step aside, lookmovie still finds it by IMDb id", async () => {
@@ -162,6 +162,28 @@ test("picking a server: hexa for a series works, lookmovie for a series doesn't"
   const l = await askJson("/api/sources?type=series&imdb=tt0000201&tmdb=9201&title=Breaking%20Nap&s=1&e=1&server=lookmovie");
   assert.equal(l.status, 404);
   assert.match(l.body.message, /doesn't do series/);
+});
+
+test("autoembed: a movie and an episode by IMDb id, through the relay with its referer", async () => {
+  const a = await askJson(movie("tt0000103", "9103", "Pierre Fiction", "1994", "&server=autoembed"));
+  assert.equal(a.status, 200);
+  assert.equal(a.body.server, "autoembed");
+  assert.equal(a.body.direct, null);
+  assert.ok(a.body.master.startsWith(`${ORIGIN}/p?`));
+  assert.match(await (await ask(a.body.master)).text(), /^#EXTM3U/);
+  // its own English, and OpenSubtitles' German
+  assert.deepEqual(a.body.subtitles.map((s) => s.label), ["English", "German"]);
+  assert.match(await (await ask(a.body.subtitles[0].url)).text(), /^WEBVTT/);
+  const call = fake.requests.find((r) => r.path.startsWith("/autoembed/api/getVideoSource?type=movie&id=tt0000103"));
+  assert.ok(call && call.headers.referer.endsWith("/autoembed/"));
+
+  const e = await askJson("/api/sources?type=series&imdb=tt0000201&tmdb=9201&title=Breaking%20Nap&year=2008&s=2&e=1&server=autoembed");
+  assert.equal(e.body.server, "autoembed");
+  assert.ok(fake.requests.some((r) => r.path === "/autoembed/api/getVideoSource?type=tv&id=tt0000201/2/1"));
+  // a movie it doesn't have is a plain "nothing here", not a crash
+  const none = await askJson(movie("tt0000102", "9102", "Napocalypse Now", "1979", "&server=autoembed"));
+  assert.equal(none.status, 404);
+  assert.match(none.body.message, /AutoEmbed has nothing/);
 });
 
 test("Cloudflare's bot check everywhere shows up as blocked", async () => {
