@@ -44,5 +44,21 @@ for (const [kind, server, q] of cases) {
   const b = await ask(seg);
   const ok = a.status === 200 && a.playlist && (b.status === 200 || b.status === 206) && b.bytes > 1000;
   lines.push(`${kind} on ${server}: worker gets the playlist HTTP ${a.status}${a.error ? ` (${a.error})` : ""}, a segment HTTP ${b.status} ${b.bytes || 0} bytes from ${new URL(seg).host} => ${ok ? "CLOUDFLARE CAN RELAY THIS" : "blocked"}`);
+  // Could a browser on the MMA site play it straight from the host, skipping Cloudflare? That
+  // takes CORS on the playlist and the segments, and no Referer the page can't send.
+  const site = { Origin: "https://lolesterrr.github.io", Referer: "https://lolesterrr.github.io/" };
+  const probe = async (u) => {
+    try {
+      const r = await fetch(u, { headers: { ...site, Range: "bytes=0-2047" } });
+      const body = new Uint8Array(await r.arrayBuffer());
+      return { status: r.status, bytes: body.length, cors: r.headers.get("access-control-allow-origin") || "none" };
+    } catch (e) {
+      return { status: 0, bytes: 0, cors: "none", error: e.message };
+    }
+  };
+  const [pa, pb] = [await probe(first.url), await probe(seg)];
+  const corsOk = (c) => c === "*" || c === site.Origin;
+  const direct = pa.status < 300 && pb.status < 300 && pb.bytes > 1000 && corsOk(pa.cors) && corsOk(pb.cors);
+  lines.push(`${kind} on ${server}, from a browser on the site: playlist HTTP ${pa.status} CORS ${pa.cors}, segment HTTP ${pb.status} ${pb.bytes} bytes CORS ${pb.cors} => ${direct ? "CAN PLAY DIRECT" : "no direct play"}`);
 }
 for (const l of lines) console.log(`::notice title=reach::${l}`);
