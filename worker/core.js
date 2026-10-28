@@ -7,7 +7,7 @@
  * the TMDB id Cinemeta also knows), it asks the stream sources for a link:
  *
  *   videasy    movies and series   api.wecollege.net, decrypted by enc-dec.app   needs its referer
- *   lookmovie  movies              lmscript.xyz                                  open, plays direct
+ *   lookmovie  movies              lmscript.xyz, links tied to the asker's IP    local helper only
  *   hexa       movies and series   theemoviedb.hexa.su, decrypted by enc-dec.app open, plays direct
  *   autoembed  movies and series   tom.autoembed.cc, plain JSON, no decrypting    needs its referer
  *
@@ -542,8 +542,9 @@ export function createHandler(hooks = {}) {
       .sort((a, b) => b.h - a.h);
     if (!variants.length) throw new HttpError(404, "no_source", "LookMovie has this one but no stream right now.");
     const auto = streams.auto && /^https?:/.test(streams.auto) ? streams.auto : null;
-    // Its video host turns Cloudflare away (a segment comes back as 11 bytes) but sends CORS *,
-    // so the browser plays it straight from there: the "auto" playlist, or else the best quality.
+    // Its video host turns Cloudflare away (a segment comes back as 11 bytes) but sends CORS *.
+    // Links are tied to the IP that asked ("WRONG HASH!" from anywhere else), so this only helps
+    // the local helper, where the browser shares the computer's connection.
     return {
       master: auto,
       variants: auto ? [] : variants,
