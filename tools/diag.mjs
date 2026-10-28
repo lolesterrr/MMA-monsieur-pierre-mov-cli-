@@ -1,48 +1,29 @@
-// What does the relay make of the playlists hls.js can't parse? Runs the worker code here.
+// VidLink MP4s: which headers each copy needs, and can the deployed worker's /api/reach fetch them
 import { writeFileSync } from "node:fs";
-import { createHandler } from "../worker/core.js";
-const raw = [];
-const handle = createHandler({
-  upstream: async (url, init, kind) => {
-    const res = await fetch(url, init);
-    if (kind === "media") {
-      const copy = res.clone();
-      const type = res.headers.get("content-type") || "";
-      const buf = new Uint8Array(await copy.arrayBuffer());
-      const head = new TextDecoder().decode(buf.slice(0, 4000));
-      raw.push({ url, status: res.status, type, bytes: buf.length, head: /EXTM3U/.test(head) ? head : head.slice(0, 120) });
-    }
-    return res;
-  },
-});
-const env = { SIGNING_KEY: "diag-key" };
-const O = "https://w.test";
-const call = async (path) => {
-  const r = await handle(new Request(path.startsWith("http") ? path : O + path, { headers: { Origin: "https://lolesterrr.github.io" } }), env);
-  return { status: r.status, type: r.headers.get("content-type"), text: await r.text() };
-};
-const lines = (t) => t.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+const APP = "com.community.oneroom/50020115 (Linux; U; Android 15; en_US; OPPO CPH2579; Build/AP3A.240905.015.A2; Cronet/140.0.7339.51)";
+const BUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
+const VL = { Origin: "https://vidlink.pro", Referer: "https://vidlink.pro/" };
 const out = {};
-for (const [name, q] of [
-  ["rehearsal-s1e1-videasy", "type=series&imdb=tt10802170&tmdb=204284&title=The%20Rehearsal&year=2022&s=1&e=1&server=videasy"],
-  ["prestige-hexa", "type=movie&imdb=tt0482571&tmdb=1124&title=The%20Prestige&year=2006&server=hexa"],
-  ["prestige-videasy", "type=movie&imdb=tt0482571&tmdb=1124&title=The%20Prestige&year=2006&server=videasy"],
-]) {
-  raw.length = 0;
-  const s = await call(`/api/sources?${q}`);
-  const r = { sources: s.status, body: s.text.slice(0, 400) };
-  let j = null;
-  try { j = JSON.parse(s.text); } catch {}
-  if (j && j.master) {
-    const m = await call(j.master.replace(/^https?:\/\/[^/]+/, O));
-    r.master = { status: m.status, type: m.type, text: m.text.slice(0, 3000) };
-    const level = lines(m.text).at(-1);
-    if (level) {
-      const l = await call(level);
-      r.level = { status: l.status, type: l.type, text: l.text.slice(0, 4000) };
-    }
+const st = async (url, headers) => { try { const r = await fetch(url, { headers, signal: AbortSignal.timeout(15000) }); const b = await r.arrayBuffer(); return `${r.status} ${r.headers.get("content-type")} ${b.byteLength}b ${r.headers.get("content-range") || ""}`; } catch (e) { return `ERR ${e.message}`; } };
+for (const [name, type, tmdb, s, e] of [["Rehearsal S1E1", "tv", "204284", 1, 1], ["Inception", "movie", "27205"], ["Prestige", "movie", "1124"], ["Breaking Bad S1E1", "tv", "1396", 1, 1], ["Rehearsal S2E3", "tv", "204284", 2, 3]]) {
+  const ej = await (await fetch(`https://enc-dec.app/api/enc-vidlink?text=${tmdb}`)).json().catch(() => ({}));
+  if (!ej.result) { out[name] = { enc: ej }; continue; }
+  const r = await fetch(`https://vidlink.pro/api/b/${type}/${encodeURIComponent(ej.result)}${type === "tv" ? `/${s}/${e}` : ""}`, { headers: { "User-Agent": BUA, ...VL } });
+  const text = await r.text();
+  let d = null; try { d = JSON.parse(text); } catch {}
+  const res = { api: r.status, sourceId: d && d.sourceId, streamType: d && d.stream && d.stream.type, keys: d && d.stream && Object.keys(d.stream), captions: d && d.stream && (d.stream.captions || []).slice(0, 3).map((c) => ({ lang: c.language || c.lang, url: (c.url || "").slice(0, 60), type: c.type })), files: {} };
+  if (!d) res.head = text.slice(0, 300);
+  for (const [q, v] of Object.entries((d && d.stream && d.stream.qualities) || {})) {
+    const R = { Range: "bytes=0-65535" };
+    res.files[q] = {
+      codec: v.codecName, headers: v.headers,
+      appUA: await st(v.url, { ...R, "User-Agent": APP, Accept: "*/*" }),
+      appUAvlRef: await st(v.url, { ...R, "User-Agent": APP, ...VL }),
+      browserUA: await st(v.url, { ...R, "User-Agent": BUA }),
+      reachFromCloudflare: await fetch(`https://mma.kajjabwangulester.workers.dev/api/reach?u=${encodeURIComponent(v.url)}&ref=`).then((x) => x.text()).catch((e) => e.message),
+    };
   }
-  r.upstream = raw.slice(0, 6).map((x) => ({ ...x, head: x.head.slice(0, 3500) }));
-  out[name] = r;
+  if (d && d.stream && d.stream.playlist) res.playlist = { url: d.stream.playlist.slice(0, 100), headers: d.stream.headers, vl: await st(d.stream.playlist, { "User-Agent": BUA, ...VL }) };
+  out[name] = res;
 }
 writeFileSync("diag-out.json", JSON.stringify(out, null, 1));
