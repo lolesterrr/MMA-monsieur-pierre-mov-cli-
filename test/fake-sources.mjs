@@ -205,6 +205,8 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
       if (m[1] === "miami" && x.id === "tt0000202") return send(res, 200, "", "text/plain"); // only on the second server
       const kind = q.get("mediaType") === "tv" ? `${x.id}/${q.get("seasonId")}/${q.get("episodeId")}` : x.id;
       const base = `${host.guarded}/vd/${kind}`;
+      // like Videasy's reno server on The Rehearsal: one "source" that is itself a master playlist
+      if (x.id === "tt0000202" && kind.endsWith("/1/4")) return send(res, 200, b64({ sources: [{ quality: "1080p", url: `${base}/master.m3u8` }], subtitles: [] }), "text/plain");
       return send(res, 200, b64({ sources: [{ quality: "720p", url: `${base}/720/index.m3u8` }, { quality: "360p", url: `${base}/360/index.m3u8` }], subtitles: [{ lang: "eng", language: "English", url: `${base}/subs/eng.vtt` }], playlist: `${base}/master.m3u8` }), "text/plain");
     }
 

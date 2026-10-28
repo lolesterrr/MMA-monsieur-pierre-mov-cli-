@@ -704,7 +704,11 @@ function createHandler(hooks = {}) {
           res = await RUN[id](cfg, m);
           const first = res.master || (res.variants[0] && res.variants[0].u);
           if (!first) throw new HttpError(404, "no_source", "No stream link.");
-          await verify(first, res.referer);
+          const text = await verify(first, res.referer);
+          // a "quality" that is itself a master playlist (Videasy's backup servers do this) plays
+          // as the master: wrapping it in a made-up master nests masters, and hls.js gives up
+          // with levelParsingError
+          if (!res.master && /#EXT-X-STREAM-INF/.test(text)) res = { ...res, master: first, variants: [] };
           memoSet(cacheKey, res, 10 * 60e3);
         }
         got = res;
