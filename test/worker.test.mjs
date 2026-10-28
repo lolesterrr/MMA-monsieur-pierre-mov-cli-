@@ -73,10 +73,10 @@ test("health says what's set up, and checks every source", async () => {
   const { body } = await askJson("/api/health");
   assert.equal(body.signing, true);
   assert.equal(body.complaints, true);
-  assert.deepEqual(body.servers, ["videasy", "lookmovie", "hexa", "autoembed"]);
+  assert.deepEqual(body.servers, ["videasy", "lookmovie", "hexa"]);
   const deep = await askJson("/api/health?deep=1");
   assert.equal(deep.body.upstream, "ok");
-  for (const s of ["videasy", "lookmovie", "hexa", "autoembed"]) assert.equal(deep.body.sources[s].ok, true, s);
+  for (const s of ["videasy", "lookmovie", "hexa"]) assert.equal(deep.body.sources[s].ok, true, s);
 });
 
 test("a movie on videasy plays through the relay with videasy's referer", async () => {
@@ -100,7 +100,7 @@ test("a movie on videasy plays through the relay with videasy's referer", async 
   assert.ok((await s.arrayBuffer()).byteLength > 1000);
   const hits = fake.requests.filter((r) => r.server === "guarded");
   assert.ok(hits.length >= 3);
-  assert.ok(hits.every((r) => r.headers.referer === "https://player.videasy.to/"));
+  assert.ok(hits.every((r) => r.headers.referer === "https://vidy.st/"));
 
   const de = body.subtitles.find((x) => x.label === "German");
   const vtt = await ask(de.url);
@@ -141,7 +141,7 @@ test("nothing anywhere: 404 with what every server said", async () => {
   const { status, body } = await askJson(movie("tt0000104", "9104", "The Nap Knight", "2008"));
   assert.equal(status, 404);
   assert.equal(body.error, "no_source");
-  assert.deepEqual(body.tried.map((t) => t.server), ["videasy", "lookmovie", "hexa", "autoembed"]);
+  assert.deepEqual(body.tried.map((t) => t.server), ["videasy", "lookmovie", "hexa"]);
   assert.ok(body.servers.length === 4);
 });
 
@@ -189,6 +189,31 @@ test("autoembed: a movie and an episode by IMDb id, through the relay with its r
   const none = await askJson(movie("tt0000102", "9102", "Napocalypse Now", "1979", "&server=autoembed"));
   assert.equal(none.status, 404);
   assert.match(none.body.message, /AutoEmbed has nothing/);
+});
+
+test("enc-dec.app's too-many-requests bursts get retried instead of failing Hexa", async () => {
+  const waits = [];
+  const patient = createHandler({ sleep: (ms) => (waits.push(ms), Promise.resolve()) });
+  const ask2 = async (path) => {
+    const res = await patient(new Request(`${ORIGIN}${path}`, { headers: { Origin: "https://lolesterrr.github.io" } }), env);
+    return { status: res.status, body: await res.json() };
+  };
+  fake.set({ busy: 2 });
+  const ok = await ask2(movie("tt0000103", "9103", "Pierre Fiction", "1994", "&server=hexa&fresh=1"));
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.server, "hexa");
+  assert.deepEqual(waits, [700, 1500]);
+  // a burst that outlasts the retries says so plainly
+  waits.length = 0;
+  fake.set({ busy: 10 });
+  try {
+    const no = await ask2(movie("tt0000103", "9103", "Pierre Fiction", "1994", "&server=hexa&fresh=1"));
+    assert.equal(no.status, 404);
+    assert.match(no.body.message, /enc-dec\.app is busy/);
+    assert.equal(waits.length, 3);
+  } finally {
+    fake.set({ busy: 0 });
+  }
 });
 
 test("Cloudflare's bot check everywhere shows up as blocked", async () => {
