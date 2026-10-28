@@ -24,7 +24,7 @@ function loadHls() {
 }
 
 const SERVER_NAMES = { auto: "Auto", videasy: "Videasy", lookmovie: "LookMovie", hexa: "Hexa", autoembed: "AutoEmbed" };
-const SERVER_TYPES = { videasy: ["movie", "series"], lookmovie: ["movie"], hexa: ["movie", "series"], autoembed: ["movie", "series"] };
+const SERVER_TYPES = { videasy: ["movie", "series"], lookmovie: ["movie"], hexa: ["movie", "series"] };
 
 export const title = (params, route) => {
   const t = (seen.get(route.id) || {}).title || typeLabel(route.type);
@@ -68,7 +68,7 @@ export async function render(main, params, ctx, route) {
     </div>
     <div class="watch-tools">
       <label class="pick"><span>Server</span><select data-server>
-        ${["auto", "videasy", "lookmovie", "hexa", "autoembed"]
+        ${["auto", "videasy", "lookmovie", "hexa"]
           .filter(fitting)
           .map((k) => `<option value="${k}"${k === server ? " selected" : ""}>${SERVER_NAMES[k]}</option>`)
           .join("")}

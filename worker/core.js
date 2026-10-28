@@ -9,7 +9,7 @@
  *   videasy    movies and series   api.wecollege.net, decrypted by enc-dec.app   needs its referer
  *   lookmovie  movies              lmscript.xyz, links tied to the asker's IP    local helper only
  *   hexa       movies and series   theemoviedb.hexa.su, decrypted by enc-dec.app open, plays direct
- *   autoembed  movies and series   tom.autoembed.cc, plain JSON, no decrypting    needs its referer
+ *   autoembed  movies and series   tom.autoembed.cc, plain JSON, no decrypting    down since Oct 2026 (HTTP 530), off by default
  *
  * mov-cli (https://github.com/mov-cli/mov-cli) is a framework without scrapers of its own, and
  * its movie plugins and lobster's flixhq source are gone, so the steps here follow the live
@@ -35,7 +35,7 @@
  *                    MMA repo. Without it, complaints fall back to a prefilled GitHub link.
  *   GITHUB_REPO      default lolesterrr/MMA-monsieur-pierre-mov-cli-
  *   ALLOWED_ORIGINS  comma separated, default * . e.g. https://lolesterrr.github.io,http://localhost:*
- *   SERVERS          order for "auto", default videasy,lookmovie,hexa,autoembed
+ *   SERVERS          order for "auto", default videasy,lookmovie,hexa (add autoembed if it comes back)
  *   RELAY_ORIGIN     set only on the lookup helper (deno/main.js): the Cloudflare worker's address.
  *                    Links it finds then play through that worker, which shares its SIGNING_KEY.
  *   COMPLAINTS_PER_10_MIN  per visitor, default 5
@@ -54,7 +54,7 @@ const DEFAULTS = {
   HEXA_URL: "https://theemoviedb.hexa.su",
   AUTOEMBED_URL: "https://tom.autoembed.cc",
   SUBS_URL: "https://opensubtitles-v3.strem.io",
-  SERVERS: "videasy,lookmovie,hexa,autoembed",
+  SERVERS: "videasy,lookmovie,hexa",
   TOKEN_TTL: 4 * 60 * 60,
 };
 
@@ -68,8 +68,9 @@ export const SERVERS = {
   autoembed: { id: "autoembed", name: "AutoEmbed", types: ["movie", "series"], note: "One quality, by IMDb id" },
 };
 
-const VIDEASY_REFERER = "https://player.videasy.to/";
-const VIDEASY_SERVERS = ["miami", "boise", "vegas"];
+// Videasy moved its player to vidy.st (Oct 2026): the old player.videasy.to referer gets a 403 bot-check page
+const VIDEASY_REFERER = "https://vidy.st/";
+const VIDEASY_SERVERS = ["miami", "boise", "vegas", "reno", "oakland"];
 const HEXA_REFERER = "https://hexa.su/";
 
 const COMPLAINT_KINDS = {
@@ -466,7 +467,11 @@ export function createHandler(hooks = {}) {
     }
     const text = await res.text();
     if (isChallenge(res.status, text)) throw new HttpError(503, "blocked", `Cloudflare's bot check stopped the worker at ${what || short(url)}.`);
-    if (!res.ok) throw new HttpError(502, "upstream", `${what || short(url)} answered HTTP ${res.status}.`);
+    if (!res.ok) {
+      const err = new HttpError(502, "upstream", `${what || short(url)} answered HTTP ${res.status}.`);
+      err.body = text.slice(0, 500);
+      throw err;
+    }
     return text;
   }
 
@@ -479,11 +484,39 @@ export function createHandler(hooks = {}) {
     }
   }
 
-  /** enc-dec.app answers { status, result } */
+  const wait = hooks.sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+
+  /**
+   * enc-dec.app answers { status, result }. It rate-limits in bursts of a few seconds
+   * ("oop! too many requests", as an HTTP 500), so those get a few more tries, waiting longer each time.
+   */
   async function encdec(cfg, path, init = {}) {
-    const data = await callJson(`${cfg.encdec}/api/${path}`, { ...init, what: "enc-dec.app" });
-    if (data && data.status && data.status !== 200) throw new HttpError(502, "decrypt", `enc-dec.app couldn't ${path.replace(/-.*/, "")} this one (${data.error || data.status}).`);
-    return data ? data.result : null;
+    const pauses = [700, 1500, 3000];
+    for (let attempt = 0; ; attempt++) {
+      let data;
+      try {
+        data = await callJson(`${cfg.encdec}/api/${path}`, { ...init, what: "enc-dec.app" });
+      } catch (e) {
+        // the limit comes back as HTTP 500 {"status":500,"error":"oop! too many requests"}
+        let parsed = null;
+        try {
+          parsed = JSON.parse(e.body || "");
+        } catch {
+          /* not JSON */
+        }
+        if (!parsed || typeof parsed !== "object") throw e;
+        data = parsed;
+      }
+      const busy = data && data.status && data.status !== 200 && (/too many/i.test(data.error || "") || data.status === 429);
+      if (busy && attempt < pauses.length) {
+        await wait(pauses[attempt]);
+        continue;
+      }
+      if (data && data.status && data.status !== 200) {
+        throw new HttpError(502, busy ? "busy" : "decrypt", busy ? "enc-dec.app is busy (too many requests), try again in a minute." : `enc-dec.app couldn't ${path.replace(/-.*/, "")} this one (${data.error || data.status}).`);
+      }
+      return data ? data.result : null;
+    }
   }
 
   // ---- sources. Each returns { master, variants?, referer, direct?, subtitles: [{label, lang, url}] }
@@ -599,8 +632,19 @@ export function createHandler(hooks = {}) {
 
   const RUN = { videasy, lookmovie, hexa, autoembed };
 
-  /** Does the playlist load? A source can hand out links that 403 or 404. */
+  /** Does the playlist load? A 5xx gets one more try a moment later (Hexa's hosts blip). */
   async function verify(url, referer) {
+    try {
+      return await verifyOnce(url, referer);
+    } catch (e) {
+      if (!/HTTP 5\d\d\b|didn't answer/.test(e.message || "")) throw e;
+      await wait(1000);
+      return verifyOnce(url, referer);
+    }
+  }
+
+  /** Does the playlist load? A source can hand out links that 403 or 404. */
+  async function verifyOnce(url, referer) {
     const headers = { "User-Agent": UA, Accept: "*/*" };
     if (referer) {
       headers.Referer = referer;

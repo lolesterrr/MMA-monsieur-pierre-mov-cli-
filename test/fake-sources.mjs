@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensureMedia } from "./media.mjs";
 
-const VIDEASY_REFERER = "https://player.videasy.to/";
+const VIDEASY_REFERER = "https://vidy.st/";
 
 // where each title can be found: v = videasy, h = hexa, l = lookmovie, a = autoembed
 export const MOVIES = [
@@ -133,7 +133,7 @@ function master(codec, prefix = "") {
  * set({ blocked: true }) makes every source answer with Cloudflare's bot check.
  */
 export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = process.env.FAKE_CODEC || "h264" } = {}) {
-  const state = { blocked: false, issues: [], requests: [], down: new Set() };
+  const state = { blocked: false, issues: [], requests: [], down: new Set(), busy: 0 };
   const mediaDir = media ? ensureMedia(codec) : null;
   const host = {};
   const challenge = (res) =>
@@ -218,7 +218,14 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
         return send(res, 200, { status: 500, error: "decrypt failed" });
       }
     }
-    if (p === "/encdec/api/enc-hexa") return send(res, 200, { status: 200, result: { token: "cap-token" } });
+    if (p === "/encdec/api/enc-hexa") {
+      // like the real one in a burst: "oop! too many requests", as an HTTP 500
+      if (state.busy > 0) {
+        state.busy--;
+        return send(res, 500, { status: 500, error: "oop! too many requests" });
+      }
+      return send(res, 200, { status: 200, result: { token: "cap-token" } });
+    }
     if (p === "/encdec/api/dec-hexa" && req.method === "POST") {
       const { text, key } = JSON.parse(await readBody(req));
       if (!/^[0-9a-f]{64}$/.test(key)) return send(res, 200, { status: 400, error: "bad key" });
@@ -334,6 +341,7 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
     set(opts) {
       if ("blocked" in opts) state.blocked = opts.blocked;
       if ("down" in opts) state.down = new Set(opts.down);
+      if ("busy" in opts) state.busy = opts.busy;
     },
     stop: () => Promise.all(servers.map((s) => new Promise((r) => s.close(r)))),
   };
