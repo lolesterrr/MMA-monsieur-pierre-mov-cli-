@@ -73,10 +73,10 @@ test("health says what's set up, and checks every source", async () => {
   const { body } = await askJson("/api/health");
   assert.equal(body.signing, true);
   assert.equal(body.complaints, true);
-  assert.deepEqual(body.servers, ["videasy", "lookmovie", "hexa"]);
+  assert.deepEqual(body.servers, ["videasy", "lookmovie", "hexa", "vidlink"]);
   const deep = await askJson("/api/health?deep=1");
   assert.equal(deep.body.upstream, "ok");
-  for (const s of ["videasy", "lookmovie", "hexa"]) assert.equal(deep.body.sources[s].ok, true, s);
+  for (const s of ["videasy", "lookmovie", "hexa", "vidlink"]) assert.equal(deep.body.sources[s].ok, true, s);
 });
 
 test("a movie on videasy plays through the relay with videasy's referer", async () => {
@@ -141,8 +141,8 @@ test("nothing anywhere: 404 with what every server said", async () => {
   const { status, body } = await askJson(movie("tt0000104", "9104", "The Nap Knight", "2008"));
   assert.equal(status, 404);
   assert.equal(body.error, "no_source");
-  assert.deepEqual(body.tried.map((t) => t.server), ["videasy", "lookmovie", "hexa"]);
-  assert.ok(body.servers.length === 4);
+  assert.deepEqual(body.tried.map((t) => t.server), ["videasy", "lookmovie", "hexa", "vidlink"]);
+  assert.ok(body.servers.length === 5);
 });
 
 test("no TMDB id: videasy and hexa step aside, lookmovie still finds it by IMDb id", async () => {
@@ -169,6 +169,37 @@ test("a videasy source that is itself a master plays as the master, not nested i
   const level = await (await ask(master.split("\n").find((l) => l.startsWith(`${ORIGIN}/p?`)))).text();
   assert.match(level, /#EXTINF/);
   assert.doesNotMatch(level, /#EXT-X-STREAM-INF/);
+});
+
+test("vidlink: MP4 files through the relay, with MovieBox's User-Agent and no Referer", async () => {
+  const { status, body } = await askJson(movie("tt0000103", "9103", "Pierre Fiction", "1994", "&server=vidlink"));
+  assert.equal(status, 200);
+  assert.equal(body.server, "vidlink");
+  assert.equal(body.kind, "mp4");
+  assert.deepEqual(body.files.map((f) => [f.h, f.codec]), [[720, "h264"], [360, "hevc"]]);
+  assert.equal(body.master, body.files[0].url);
+  const r = await ask(body.files[0].url, { headers: { Range: "bytes=0-99" } });
+  assert.equal(r.status, 206);
+  assert.equal(r.headers.get("content-type"), "video/mp4");
+  assert.match(r.headers.get("content-range"), /^bytes 0-99\/\d+$/);
+  assert.equal((await r.arrayBuffer()).byteLength, 100);
+  const hits = fake.requests.filter((x) => x.server === "open" && x.path.startsWith("/mb/"));
+  assert.ok(hits.length >= 2);
+  assert.ok(hits.every((x) => x.headers["user-agent"].startsWith("com.community.oneroom/") && !x.headers.referer));
+  // VidLink's own English (an .srt, turned into WebVTT) and OpenSubtitles' German
+  assert.deepEqual(body.subtitles.map((x) => x.label), ["English", "German"]);
+  assert.match(await (await ask(body.subtitles[0].url)).text(), /^WEBVTT/);
+  // an episode that only comes in HEVC says so, and the app decides whether it can play it
+  const e = await askJson("/api/sources?type=series&imdb=tt0000202&tmdb=9202&title=Stranger%20Naps&year=2016&s=1&e=3&server=vidlink");
+  assert.deepEqual(e.body.files.map((f) => f.codec), ["hevc"]);
+});
+
+test("relay tokens can carry a User-Agent, and old ones still read", async () => {
+  const t = await makeToken("k", { referer: "https://r.test/", ua: "App/1.0", hosts: ["a.test"] });
+  assert.deepEqual(await readToken("k", t), { exp: (await readToken("k", t)).exp, referer: "https://r.test/", ua: "App/1.0", hosts: ["a.test"] });
+  const old = await makeToken("k", { referer: "https://r.test/", hosts: ["a.test"] });
+  assert.equal((await readToken("k", old)).ua, "");
+  assert.equal((await readToken("k", old)).referer, "https://r.test/");
 });
 
 test("picking a server: hexa for a series works, lookmovie for a series doesn't", async () => {

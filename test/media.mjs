@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
  */
 export function ensureMedia(codec = "h264", dir = join(tmpdir(), `mma-fake-media-${codec}`)) {
   const marker = join(dir, "ready");
-  if (existsSync(marker)) return dir;
+  if (existsSync(marker)) return ensureFile(codec, dir);
   for (const q of ["720", "360"]) mkdirSync(join(dir, q), { recursive: true });
   writeFileSync(join(dir, "720", "key.bin"), randomBytes(16));
   writeFileSync(join(dir, "720", "keyinfo.txt"), `key.bin\n${join(dir, "720", "key.bin")}\n`);
@@ -48,6 +48,15 @@ export function ensureMedia(codec = "h264", dir = join(tmpdir(), `mma-fake-media
     writeFileSync(list, text);
   }
   writeFileSync(marker, "ok");
+  return ensureFile(codec, dir);
+}
+
+/** The same test pattern as one plain MP4 file (file.mp4), like VidLink's MovieBox copies. */
+function ensureFile(codec, dir) {
+  const file = join(dir, "file.mp4");
+  if (existsSync(file)) return dir;
+  const enc = codec === "vp9" ? ["-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8", "-b:v", "500k", "-c:a", "libopus"] : ["-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac"];
+  execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=24", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "12", ...enc, "-movflags", "+faststart", file]);
   return dir;
 }
 
