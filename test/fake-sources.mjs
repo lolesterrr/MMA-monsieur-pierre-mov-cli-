@@ -13,18 +13,19 @@ import { fileURLToPath } from "node:url";
 import { ensureMedia } from "./media.mjs";
 
 const VIDEASY_REFERER = "https://vidy.st/";
+const MOVIEBOX_UA = "com.community.oneroom/50020115 (Linux; U; Android 15; en_US; OPPO CPH2579; Build/AP3A.240905.015.A2; Cronet/140.0.7339.51)";
 
-// where each title can be found: v = videasy, h = hexa, l = lookmovie, a = autoembed
+// where each title can be found: v = videasy, h = hexa, l = lookmovie, a = autoembed, k = vidlink
 export const MOVIES = [
-  { id: "tt0000101", tmdb: "9101", title: "The Grand Budapest Nap", year: "2014", on: "vhla", hue: 12, genre: ["Comedy"], runtime: "100 min" },
+  { id: "tt0000101", tmdb: "9101", title: "The Grand Budapest Nap", year: "2014", on: "vhlak", hue: 12, genre: ["Comedy"], runtime: "100 min" },
   { id: "tt0000102", tmdb: "9102", title: "Napocalypse Now", year: "1979", on: "l", hue: 40, genre: ["War", "Drama"], runtime: "147 min" },
-  { id: "tt0000103", tmdb: "9103", title: "Pierre Fiction", year: "1994", on: "ha", hue: 200, genre: ["Crime"], runtime: "154 min" },
+  { id: "tt0000103", tmdb: "9103", title: "Pierre Fiction", year: "1994", on: "hak", hue: 200, genre: ["Crime"], runtime: "154 min" },
   { id: "tt0000104", tmdb: "9104", title: "The Nap Knight", year: "2008", on: "", hue: 280, genre: ["Action"], runtime: "152 min" },
   { id: "tt0000105", tmdb: "", title: "No Ids Here", year: "2001", on: "vhl", hue: 150, genre: ["Mystery"], runtime: "90 min" },
 ];
 export const SERIES = [
   { id: "tt0000201", tmdb: "9201", title: "Breaking Nap", years: "2008–2013", on: "vha", hue: 100, genre: ["Drama"], seasons: [3, 2], specials: 1, upcoming: true },
-  { id: "tt0000202", tmdb: "9202", title: "Stranger Naps", years: "2016–", on: "v", hue: 330, genre: ["Sci-Fi"], seasons: [4], specials: 0 },
+  { id: "tt0000202", tmdb: "9202", title: "Stranger Naps", years: "2016–", on: "vk", hue: 330, genre: ["Sci-Fi"], seasons: [4], specials: 0 },
 ];
 
 const all = () => [...MOVIES.map((m) => ({ ...m, type: "movie" })), ...SERIES.map((s) => ({ ...s, type: "series" }))];
@@ -110,7 +111,7 @@ function listen(server, port) {
 
 function streamFile(req, res, mediaDir, file, cors) {
   const path = join(mediaDir, file);
-  if (!/^(720|360)\/(index\.m3u8|seg\d{3}\.(ts|m4s)|init\.mp4|key\.bin)$/.test(file) || !existsSync(path)) return send(res, 404, "", "text/plain", cors);
+  if (!/^((720|360)\/(index\.m3u8|seg\d{3}\.(ts|m4s)|init\.mp4|key\.bin)|file\.mp4)$/.test(file) || !existsSync(path)) return send(res, 404, "", "text/plain", cors);
   const type = file.endsWith(".m3u8") ? "application/vnd.apple.mpegurl" : file.endsWith(".ts") ? "video/mp2t" : /\.(m4s|mp4)$/.test(file) ? "video/mp4" : "application/octet-stream";
   const data = readFileSync(path);
   const range = req.headers.range && req.headers.range.match(/bytes=(\d+)-(\d*)/);
@@ -220,6 +221,7 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
         return send(res, 200, { status: 500, error: "decrypt failed" });
       }
     }
+    if (p === "/encdec/api/enc-vidlink") return send(res, 200, { status: 200, result: `vl+${url.searchParams.get("text")}=` });
     if (p === "/encdec/api/enc-hexa") {
       // like the real one in a burst: "oop! too many requests", as an HTTP 500
       if (state.busy > 0) {
@@ -284,6 +286,21 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
       return send(res, 200, { videoSource: `${host.open}/ae/${kind}/720/index.m3u8`, subtitles: [{ label: "English", file: `${host.open}/ae/${kind}/subs/en.vtt` }] });
     }
 
+    // ---- vidlink: wants its own referer; answers MovieBox MP4 files per quality
+    m = p.match(/^\/vidlink\/api\/b\/(movie|tv)\/([^/]+)(?:\/(\d+)\/(\d+))?$/);
+    if (m) {
+      if (req.headers.referer !== `${host.sources}/vidlink/`) return send(res, 403, "wrong referer", "text/plain");
+      const tmdb = (decodeURIComponent(m[2]).match(/^vl\+(\d+)=$/) || [])[1];
+      const x = byTmdb(tmdb);
+      if (!has(x, "k") || (m[1] === "tv") !== (x.type === "series")) return send(res, 200, null);
+      const kind = m[1] === "tv" ? `${x.id}/${m[3]}/${m[4]}` : x.id;
+      // S1E3 of Stranger Naps only comes in HEVC, like The Rehearsal S1E1
+      const hevcOnly = kind === "tt0000202/1/3";
+      const file = (q, codec) => ({ type: "mp4", url: `${host.open}/mb/${kind}/${q}.mp4?sign=abc`, codecName: codec, headers: codec === "hevc" ? { "User-Agent": MOVIEBOX_UA, Accept: "*/*" } : {}, requiresProxy: true });
+      const qualities = hevcOnly ? { 360: file(360, "hevc") } : { 360: file(360, "hevc"), 720: file(720, "h264") };
+      return send(res, 200, { sourceId: "mwVault", stream: { id: "primary", type: "file", qualities, captions: [{ id: "1", url: `${host.open}/mb/${kind}/en.srt`, language: "English", type: "srt" }] } });
+    }
+
     // ---- opensubtitles (stremio addon)
     m = p.match(/^\/subs\/subtitles\/(movie|series)\/(tt\d+)(?::\d+:\d+)?\.json$/);
     if (m) return send(res, 200, { subtitles: [{ id: "1", lang: "ger", url: `${host.sources}/subs/file/${m[2]}.srt` }, { id: "2", lang: "eng", url: `${host.sources}/subs/file/${m[2]}-en.srt` }] });
@@ -311,6 +328,13 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
     const cors = { "Access-Control-Allow-Origin": "*" };
     state.requests.push({ server: "open", path: url.pathname, headers: req.headers });
     if (req.method === "OPTIONS") return send(res, 204, "", "text/plain", { ...cors, "Access-Control-Allow-Headers": "*" });
+    // MovieBox's MP4 host: only its Android app's User-Agent, and no Referer (else HTTP 428)
+    const mb = url.pathname.match(/^\/mb\/(tt\d+)(?:\/\d+\/\d+)?\/(\d+\.mp4|en\.srt)$/);
+    if (mb) {
+      if (!String(req.headers["user-agent"] || "").startsWith("com.community.oneroom/") || req.headers.referer) return send(res, 428, "428 Forbidden\n", "text/plain");
+      if (mb[2] === "en.srt") return send(res, 200, SRT, "application/x-subrip");
+      return streamFile(req, res, mediaDir, "file.mp4", {});
+    }
     const m = url.pathname.match(/^\/(hx|lm|ae)\/(tt\d+)(?:\/\d+\/\d+)?\/(.+)$/);
     if (!m || !mediaDir) return send(res, 404, "", "text/plain", cors);
     if (m[3] === "subs/en.vtt") return send(res, 200, VTT("en"), "text/vtt", cors);
@@ -334,6 +358,7 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
       LOOKMOVIE_URL: `${host.sources}/lookmovie`,
       HEXA_URL: `${host.sources}/hexa`,
       AUTOEMBED_URL: `${host.sources}/autoembed`,
+      VIDLINK_URL: `${host.sources}/vidlink`,
       SUBS_URL: `${host.sources}/subs`,
       GITHUB_API: `${host.sources}/github`,
     },

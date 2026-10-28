@@ -78,7 +78,7 @@ def run_desktop(p, scheme="light"):
     tracks = page.evaluate("() => [...document.querySelector('video').textTracks].map(t => [t.label, t.mode])")
     assert tracks == [["English", "disabled"], ["German", "disabled"]], tracks
     expect(page.locator("[data-quality] option")).to_have_count(3)
-    expect(page.locator("[data-server] option")).to_have_count(4)
+    expect(page.locator("[data-server] option")).to_have_count(5)
     expect(page.locator(".perch")).to_have_attribute("data-anim", "popcorn")
     page.select_option("[data-subs]", label="English")
     page.wait_for_function("() => [...document.querySelector('video').textTracks].some(t => t.label === 'English' && t.mode === 'showing')")
@@ -125,10 +125,22 @@ def run_desktop(p, scheme="light"):
     relayed = page.evaluate("() => performance.getEntriesByType('resource').map(e => e.name).filter(n => n.includes('/hx/') || (n.includes('/p?') && n.includes('hx')))")
     assert relayed and all("/p?" not in n for n in relayed), relayed
 
+    # VidLink: a plain MP4 file through the relay, in the <video> element without hls.js
+    page.goto(BASE + "/#/watch/movie/tt0000103?server=vidlink")
+    playing(page)
+    assert page.evaluate("() => document.querySelector('video').src.includes('/p?')")
+    expect(page.locator("[data-quality] option").first).to_be_attached()
+    # an HEVC-only copy: plays where the browser does HEVC, otherwise says so plainly
+    page.goto(BASE + "/#/watch/series/tt0000202/1/3?server=vidlink")
+    hevc = page.evaluate("""() => ['video/mp4; codecs="hvc1.1.6.L93.B0"'].some(t => document.createElement('video').canPlayType(t) !== '' || (window.MediaSource && MediaSource.isTypeSupported(t)))""")
+    if not hevc:
+        expect(page.locator(".problem h2")).to_contain_text("HEVC")
+        shot(page, f"hevc{sfx}")
+
     # nothing anywhere
     page.goto(BASE + "/#/watch/movie/tt0000104")
     expect(page.locator(".problem h2")).to_have_text("No server has The Nap Knight right now")
-    expect(page.locator(".tried li")).to_have_count(3)
+    expect(page.locator(".tried li")).to_have_count(4)
     shot(page, f"none{sfx}")
     page.click(".problem [data-complain]")
     expect(page.locator("#desk [data-context]")).to_contain_text("error: no_source")
@@ -168,9 +180,9 @@ def run_desktop(p, scheme="light"):
     # Backstage check
     page.click(".foot [data-backstage]")
     page.click("#backstage [data-check]")
-    expect(page.locator("#backstage .status li")).to_have_count(7, timeout=20000)
+    expect(page.locator("#backstage .status li")).to_have_count(8, timeout=20000)
     expect(page.locator("#backstage .status")).to_contain_text("Reachable, version")
-    expect(page.locator("#backstage .status li.ok")).to_have_count(7)
+    expect(page.locator("#backstage .status li.ok")).to_have_count(8)
     shot(page, f"backstage{sfx}")
     page.keyboard.press("Escape")
 

@@ -28,6 +28,7 @@ The catalog is public and answers browsers directly, so searching costs the work
 | Videasy | movies and series, up to 4K | encrypted, decrypted by [enc-dec.app](https://enc-dec.app); the stream host wants Videasy's Referer, so the worker relays it |
 | LookMovie | movies, lots of subtitles | a plain JSON API; local helper only (its links are tied to the machine that asked) |
 | Hexa | movies (series sometimes) | encrypted like Videasy; the stream is open, so the browser plays it directly and the worker isn't used for the video |
+| VidLink | movies and series, some episodes the others lack | its id comes from enc-dec.app; plain MP4 files (MovieBox's) that only load with MovieBox's app User-Agent, so the worker relays them. Some copies are HEVC (H.265), which plays in Edge and Safari, and in Chrome when the graphics chip does HEVC |
 
 If one has nothing, the next one gets asked. You can also pick a server on the watch page. Subtitles from [OpenSubtitles](https://www.opensubtitles.org) (through Stremio's add-on) are added to whatever the server has.
 

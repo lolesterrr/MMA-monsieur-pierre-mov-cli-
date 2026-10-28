@@ -118,7 +118,7 @@ export async function startLocal({ port = 8787, host = "127.0.0.1", env = {}, ca
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const env = {};
-  for (const k of ["GITHUB_TOKEN", "GITHUB_REPO", "GITHUB_API", "SERVERS", "TOKEN_TTL", "COMPLAINTS_PER_10_MIN", "HEALTH_TITLE", "ENCDEC_URL", "VIDEASY_URL", "LOOKMOVIE_URL", "HEXA_URL", "AUTOEMBED_URL", "SUBS_URL"]) {
+  for (const k of ["GITHUB_TOKEN", "GITHUB_REPO", "GITHUB_API", "SERVERS", "TOKEN_TTL", "COMPLAINTS_PER_10_MIN", "HEALTH_TITLE", "ENCDEC_URL", "VIDEASY_URL", "LOOKMOVIE_URL", "HEXA_URL", "AUTOEMBED_URL", "VIDLINK_URL", "SUBS_URL"]) {
     if (process.env[k]) env[k] = process.env[k];
   }
   const app = await startLocal({ port: Number(process.env.PORT) || 8787, host: process.env.HOST || "127.0.0.1", env, catalog: process.env.CATALOG_URL || "" });

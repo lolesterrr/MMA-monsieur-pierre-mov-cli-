@@ -23,8 +23,8 @@ function loadHls() {
   return hlsLoading;
 }
 
-const SERVER_NAMES = { auto: "Auto", videasy: "Videasy", lookmovie: "LookMovie", hexa: "Hexa", autoembed: "AutoEmbed" };
-const SERVER_TYPES = { videasy: ["movie", "series"], lookmovie: ["movie"], hexa: ["movie", "series"] };
+const SERVER_NAMES = { auto: "Auto", videasy: "Videasy", lookmovie: "LookMovie", hexa: "Hexa", autoembed: "AutoEmbed", vidlink: "VidLink" };
+const SERVER_TYPES = { videasy: ["movie", "series"], lookmovie: ["movie"], hexa: ["movie", "series"], vidlink: ["movie", "series"] };
 
 export const title = (params, route) => {
   const t = (seen.get(route.id) || {}).title || typeLabel(route.type);
@@ -68,7 +68,7 @@ export async function render(main, params, ctx, route) {
     </div>
     <div class="watch-tools">
       <label class="pick"><span>Server</span><select data-server>
-        ${["auto", "videasy", "lookmovie", "hexa"]
+        ${["auto", "videasy", "lookmovie", "hexa", "vidlink"]
           .filter(fitting)
           .map((k) => `<option value="${k}"${k === server ? " selected" : ""}>${SERVER_NAMES[k]}</option>`)
           .join("")}
@@ -268,6 +268,8 @@ export async function render(main, params, ctx, route) {
         { once: true },
       );
     }
+    // VidLink hands out plain MP4 files: those go straight into the <video> element
+    if (src.kind === "mp4" && src.files && src.files.length) return attachFile();
     if (Hls && Hls.isSupported()) {
       // keep up to 90 seconds ahead (more when the connection allows), start low and climb
       hls = new Hls({
@@ -299,6 +301,62 @@ export async function render(main, params, ctx, route) {
       showProblem({ code: "unsupported", message: "This browser can't play HLS video. Try Chrome, Firefox, Edge or Safari." }, { retry: false });
       return;
     }
+    video.play().catch(() => {});
+  }
+
+  /** HEVC (H.265) plays where the browser and the computer's graphics chip both do it. */
+  function canHevc() {
+    const types = ['video/mp4; codecs="hvc1.1.6.L93.B0"', 'video/mp4; codecs="hev1.1.6.L93.B0"'];
+    const probe = document.createElement("video");
+    return types.some((t) => probe.canPlayType(t) !== "" || (window.MediaSource && MediaSource.isTypeSupported(t)));
+  }
+
+  function attachFile() {
+    const files = src.files.filter((f) => f.codec !== "hevc" || canHevc());
+    if (!files.length) {
+      const others = Object.keys(SERVER_TYPES).filter((k) => fitting(k) && k !== src.server);
+      showProblem(
+        { code: "hevc", message: "Only an HEVC (H.265) copy, and this browser can't play HEVC." },
+        {
+          title: `${src.name}'s copy is HEVC, which this browser can't play`,
+          body: "Edge, Safari, or Chrome on a computer whose graphics chip does HEVC can play it. Another server might have a copy that plays here.",
+          anim: "shrug",
+          extra: `<div class="row">${others.map((k) => `<button class="btn" type="button" data-try="${k}">Try ${SERVER_NAMES[k]}</button>`).join("")}</div>`,
+        },
+      );
+      return;
+    }
+    // the quality you picked before, else the best at 720p or below (lighter on data), else the smallest
+    const pref = prefs.get().quality;
+    const pick = files.find((f) => f.h === pref) || files.find((f) => f.h && f.h <= 720) || files[files.length - 1];
+    const sel = main.querySelector("[data-quality]");
+    sel.innerHTML = files.length < 2 ? `<option value="0">Only one</option>` : files.map((f, i) => `<option value="${i}">${f.h ? `${f.h}p` : `Copy ${i + 1}`}</option>`).join("");
+    sel.disabled = files.length < 2;
+    sel.value = String(files.indexOf(pick));
+    sel.onchange = () => {
+      const f = files[Number(sel.value)];
+      const at = video.currentTime;
+      const wasPlaying = !video.paused;
+      prefs.set({ quality: f.h || -1 });
+      video.addEventListener("loadedmetadata", () => {
+        video.currentTime = at;
+        if (wasPlaying) video.play().catch(() => {});
+      }, { once: true });
+      video.src = f.url;
+    };
+    video.addEventListener(
+      "error",
+      () => {
+        if (!video) return;
+        const others = Object.keys(SERVER_TYPES).filter((k) => fitting(k) && k !== src.server);
+        showProblem(
+          { code: "media", message: (video.error && video.error.message) || "The browser couldn't play this video file." },
+          { body: `${src.name}'s file didn't load. Another server might work.`, extra: `<div class="row">${others.map((k) => `<button class="btn" type="button" data-try="${k}">Try ${SERVER_NAMES[k]}</button>`).join("")}</div>` },
+        );
+      },
+      { signal: ctx.signal },
+    );
+    video.src = pick.url;
     video.play().catch(() => {});
   }
 

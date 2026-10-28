@@ -9,15 +9,15 @@
 // Deno Deploy settings: entrypoint deno/main.js, no build. Environment variables:
 //   SIGNING_KEY     the same value as the Cloudflare worker's
 //   RELAY_ORIGIN    the Cloudflare worker's address, e.g. https://mma.your-name.workers.dev
-//   SERVERS         videasy,hexa  (leave LookMovie out: its links only work from the machine that
+//   SERVERS         videasy,hexa,vidlink  (leave LookMovie out: its links only work from the machine that
 //                   asked for them, so one found here gets "WRONG HASH!" in the browser)
 //   ALLOWED_ORIGINS https://lolesterrr.github.io
 import { createHandler } from "../worker/core.js";
 
 const handle = createHandler();
-const KEYS = ["SIGNING_KEY", "RELAY_ORIGIN", "SERVERS", "ALLOWED_ORIGINS", "HEALTH_TITLE", "TOKEN_TTL", "ENCDEC_URL", "VIDEASY_URL", "LOOKMOVIE_URL", "HEXA_URL", "AUTOEMBED_URL", "SUBS_URL"];
+const KEYS = ["SIGNING_KEY", "RELAY_ORIGIN", "SERVERS", "ALLOWED_ORIGINS", "HEALTH_TITLE", "TOKEN_TTL", "ENCDEC_URL", "VIDEASY_URL", "LOOKMOVIE_URL", "HEXA_URL", "AUTOEMBED_URL", "VIDLINK_URL", "SUBS_URL"];
 const env = Object.fromEntries(KEYS.map((k) => [k, Deno.env.get(k)]).filter(([, v]) => v));
-if (!env.SERVERS) env.SERVERS = "videasy,hexa";
+if (!env.SERVERS) env.SERVERS = "videasy,hexa,vidlink";
 
 Deno.serve((request, info) => {
   const url = new URL(request.url);

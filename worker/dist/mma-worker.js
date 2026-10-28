@@ -12,6 +12,7 @@
  *   lookmovie  movies              lmscript.xyz, links tied to the asker's IP    local helper only
  *   hexa       movies and series   theemoviedb.hexa.su, decrypted by enc-dec.app open, plays direct
  *   autoembed  movies and series   tom.autoembed.cc, plain JSON, no decrypting    down since Oct 2026 (HTTP 530), off by default
+ *   vidlink    movies and series   vidlink.pro, id from enc-dec.app               MP4 files that want its app's User-Agent
  *
  * mov-cli (https://github.com/mov-cli/mov-cli) is a framework without scrapers of its own, and
  * its movie plugins and lobster's flixhq source are gone, so the steps here follow the live
@@ -37,12 +38,12 @@
  *                    MMA repo. Without it, complaints fall back to a prefilled GitHub link.
  *   GITHUB_REPO      default lolesterrr/MMA-monsieur-pierre-mov-cli-
  *   ALLOWED_ORIGINS  comma separated, default * . e.g. https://lolesterrr.github.io,http://localhost:*
- *   SERVERS          order for "auto", default videasy,lookmovie,hexa (add autoembed if it comes back)
+ *   SERVERS          order for "auto", default videasy,lookmovie,hexa,vidlink (add autoembed if it comes back)
  *   RELAY_ORIGIN     set only on the lookup helper (deno/main.js): the Cloudflare worker's address.
  *                    Links it finds then play through that worker, which shares its SIGNING_KEY.
  *   COMPLAINTS_PER_10_MIN  per visitor, default 5
  *   HEALTH_TITLE     what the deep health check plays, "imdb,tmdb,title,year" (default Inception)
- *   ENCDEC_URL, VIDEASY_URL, LOOKMOVIE_URL, HEXA_URL, AUTOEMBED_URL, SUBS_URL   override hosts (tests, mirrors)
+ *   ENCDEC_URL, VIDEASY_URL, LOOKMOVIE_URL, HEXA_URL, AUTOEMBED_URL, VIDLINK_URL, SUBS_URL   override hosts (tests, mirrors)
  */
 
 const VERSION = "1.0.0";
@@ -55,8 +56,9 @@ const DEFAULTS = {
   LOOKMOVIE_URL: "https://lmscript.xyz",
   HEXA_URL: "https://theemoviedb.hexa.su",
   AUTOEMBED_URL: "https://tom.autoembed.cc",
+  VIDLINK_URL: "https://vidlink.pro",
   SUBS_URL: "https://opensubtitles-v3.strem.io",
-  SERVERS: "videasy,lookmovie,hexa",
+  SERVERS: "videasy,lookmovie,hexa,vidlink",
   TOKEN_TTL: 4 * 60 * 60,
 };
 
@@ -68,12 +70,15 @@ const SERVERS = {
   lookmovie: { id: "lookmovie", name: "LookMovie", types: ["movie"], note: "Lots of subtitles, plays direct" },
   hexa: { id: "hexa", name: "Hexa", types: ["movie", "series"], note: "Slow to start, light on the worker" },
   autoembed: { id: "autoembed", name: "AutoEmbed", types: ["movie", "series"], note: "One quality, by IMDb id" },
+  vidlink: { id: "vidlink", name: "VidLink", types: ["movie", "series"], note: "MP4 files, has some episodes the others don't" },
 };
 
 // Videasy moved its player to vidy.st (Oct 2026): the old player.videasy.to referer gets a 403 bot-check page
 const VIDEASY_REFERER = "https://vidy.st/";
 const VIDEASY_SERVERS = ["miami", "boise", "vegas", "reno", "oakland"];
 const HEXA_REFERER = "https://hexa.su/";
+// MovieBox's Android app: VidLink's MP4 hosts want this User-Agent (and no Referer) when it doesn't say
+const MOVIEBOX_UA = "com.community.oneroom/50020115 (Linux; U; Android 15; en_US; OPPO CPH2579; Build/AP3A.240905.015.A2; Cronet/140.0.7339.51)";
 
 const COMPLAINT_KINDS = {
   video: "Video won't play",
@@ -234,9 +239,14 @@ async function sign(secret, payload) {
 }
 
 /** Token = exp.referer.hosts.sig  (referer and hosts base64url). */
-async function makeToken(secret, { referer = "", hosts = [], ttl = DEFAULTS.TOKEN_TTL, now = Date.now() }) {
+/**
+ * A signed relay token: expiry, the Referer (and, after a newline, a User-Agent) to send, and the
+ * hosts it may fetch. Tokens without a User-Agent look exactly like before.
+ */
+async function makeToken(secret, { referer = "", ua = "", hosts = [], ttl = DEFAULTS.TOKEN_TTL, now = Date.now() }) {
   const exp = Math.floor(now / 1000) + ttl;
-  const payload = `${exp}.${b64urlText(referer)}.${b64urlText([...new Set(hosts)].join(","))}`;
+  const who = ua ? `${referer}\n${String(ua).replace(/[\r\n]/g, " ")}` : referer;
+  const payload = `${exp}.${b64urlText(who)}.${b64urlText([...new Set(hosts)].join(","))}`;
   return `${payload}.${await sign(secret, payload)}`;
 }
 
@@ -248,14 +258,14 @@ async function readToken(secret, token, now = Date.now()) {
   if (!timingSafeEqual(expected, parts[3])) return null;
   const exp = Number(parts[0]);
   if (!Number.isFinite(exp) || exp * 1000 < now) return null;
-  let referer, hosts;
+  let referer, ua, hosts;
   try {
-    referer = textFromB64url(parts[1]);
+    [referer, ua = ""] = textFromB64url(parts[1]).split("\n");
     hosts = textFromB64url(parts[2]).split(",").filter(Boolean);
   } catch {
     return null;
   }
-  return { exp, referer, hosts };
+  return { exp, referer, ua, hosts };
 }
 
 function timingSafeEqual(a, b) {
@@ -426,6 +436,7 @@ function settings(env) {
     lookmovie: trim(env.LOOKMOVIE_URL || DEFAULTS.LOOKMOVIE_URL),
     hexa: trim(env.HEXA_URL || DEFAULTS.HEXA_URL),
     autoembed: trim(env.AUTOEMBED_URL || DEFAULTS.AUTOEMBED_URL),
+    vidlink: trim(env.VIDLINK_URL || DEFAULTS.VIDLINK_URL),
     subs: trim(env.SUBS_URL || DEFAULTS.SUBS_URL),
     order: order.length ? order : DEFAULTS.SERVERS.split(","),
     ttl: Number(env.TOKEN_TTL) > 0 ? Number(env.TOKEN_TTL) : DEFAULTS.TOKEN_TTL,
@@ -632,7 +643,48 @@ function createHandler(hooks = {}) {
     return { master: src, variants: [], referer, subtitles: subs };
   }
 
-  const RUN = { videasy, lookmovie, hexa, autoembed };
+  /**
+   * VidLink: enc-dec.app turns the TMDB id into VidLink's id, then one GET answers JSON. Mostly
+   * MoviBox MP4 files ("file", one per quality) that only load with MoviBox's Android User-Agent
+   * and no Referer (anything else gets HTTP 428), sometimes an HLS playlist ("hls").
+   */
+  async function vidlink(cfg, m) {
+    if (!m.tmdb) throw new HttpError(404, "no_id", "VidLink needs the TMDB id, and Cinemeta doesn't have one for this.");
+    const id = await encdec(cfg, `enc-vidlink?text=${encodeURIComponent(m.tmdb)}`);
+    if (!id || typeof id !== "string") throw new HttpError(502, "decrypt", "enc-dec.app didn't hand out a VidLink id.");
+    const path = m.type === "series" ? `tv/${encodeURIComponent(id)}/${m.s}/${m.e}` : `movie/${encodeURIComponent(id)}`;
+    const data = await callJson(`${cfg.vidlink}/api/b/${path}`, { headers: { Origin: cfg.vidlink, Referer: `${cfg.vidlink}/` }, what: "VidLink" });
+    const stream = data && data.stream;
+    if (!stream) throw new HttpError(404, "no_source", "VidLink has nothing for this.");
+    const subtitles = (stream.captions || [])
+      .filter((c) => c && typeof c.url === "string" && /^https?:/.test(c.url))
+      .map((c) => ({ ...language(c.language || c.lang), url: c.url, srt: c.type === "srt" || /\.srt(\?|$)/i.test(c.url) }));
+    if (stream.type === "hls" && stream.playlist) {
+      const h = stream.headers || {};
+      return { master: stream.playlist, variants: [], referer: h.Referer || h.referer || `${cfg.vidlink}/`, subtitles };
+    }
+    const files = Object.entries(stream.qualities || {})
+      .filter(([, v]) => v && typeof v.url === "string" && /^https?:/.test(v.url))
+      .map(([q, v]) => ({ u: v.url, h: heightOf(q) || Number(q) || 0, codec: /hevc|h265|hvc/i.test(v.codecName || "") ? "hevc" : "h264", ua: (v.headers && v.headers["User-Agent"]) || "" }))
+      .sort((a, b) => b.h - a.h);
+    if (!files.length) throw new HttpError(404, "no_source", "VidLink has nothing for this.");
+    return { kind: "mp4", files, master: null, variants: [], referer: "", ua: files.find((f) => f.ua)?.ua || MOVIEBOX_UA, subtitles };
+  }
+
+  const RUN = { videasy, lookmovie, hexa, autoembed, vidlink };
+
+  /** Does an MP4 load? The first two bytes are enough. */
+  async function verifyFile(url, ua) {
+    let res;
+    try {
+      res = await upstream(url, { headers: { "User-Agent": ua || UA, Accept: "*/*", Range: "bytes=0-1" }, redirect: "follow", signal: AbortSignal.timeout(10000) }, "media");
+    } catch (e) {
+      throw new HttpError(502, "dead_link", `The video file didn't answer (${e.name === "TimeoutError" ? "timed out" : e.message}).`);
+    }
+    const type = res.headers.get("Content-Type") || "";
+    if (res.body) await res.body.cancel().catch(() => {});
+    if (!res.ok || /text\/html|json/i.test(type)) throw new HttpError(502, "dead_link", `The video file answered HTTP ${res.status}${res.ok ? ` (${type})` : ""}.`);
+  }
 
   /** Does the playlist load? A 5xx gets one more try a moment later (Hexa's hosts blip). */
   async function verify(url, referer) {
@@ -702,6 +754,13 @@ function createHandler(hooks = {}) {
         let res = m.fresh ? undefined : memoGet(cacheKey);
         if (!res) {
           res = await RUN[id](cfg, m);
+          if (res.kind === "mp4") {
+            await verifyFile(res.files[0].u, res.ua);
+            memoSet(cacheKey, res, 10 * 60e3);
+            got = res;
+            server = id;
+            break;
+          }
           const first = res.master || (res.variants[0] && res.variants[0].u);
           if (!first) throw new HttpError(404, "no_source", "No stream link.");
           const text = await verify(first, res.referer);
@@ -729,10 +788,14 @@ function createHandler(hooks = {}) {
     const origin = cfg.relayOrigin || new URL(request.url).origin;
     const extra = await subsPromise;
     const allSubs = tidySubtitles([...got.subtitles, ...extra]);
-    const urls = [got.master, ...got.variants.map((v) => v.u), ...allSubs.map((s) => s.url)].filter(Boolean);
+    const files = got.kind === "mp4" ? got.files : [];
+    const urls = [got.master, ...got.variants.map((v) => v.u), ...files.map((f) => f.u), ...allSubs.map((s) => s.url)].filter(Boolean);
     const hosts = urls.map((u) => new URL(u).host);
-    const token = await makeToken(env.SIGNING_KEY, { referer: got.referer || "", hosts, ttl: cfg.ttl });
-    const master = got.master
+    const token = await makeToken(env.SIGNING_KEY, { referer: got.referer || "", ua: got.ua || "", hosts, ttl: cfg.ttl });
+    const relayed = files.map((f) => ({ h: f.h, codec: f.codec, url: relayUrl(origin, token, f.u) }));
+    const master = relayed.length
+      ? relayed[0].url
+      : got.master
       ? relayUrl(origin, token, got.master)
       : `${origin}/m?t=${token}&v=${b64urlText(JSON.stringify(got.variants.map((v) => ({ u: v.u, h: v.h }))))}`;
     return {
@@ -740,6 +803,9 @@ function createHandler(hooks = {}) {
       name: SERVERS[server].name,
       type: m.type,
       imdb: m.imdb,
+      // "mp4": plain video files, one per quality (files), for the <video> element, not hls.js
+      kind: got.kind === "mp4" ? "mp4" : "hls",
+      ...(relayed.length ? { files: relayed } : {}),
       master,
       // true: play the master straight from the host. A link: play that one straight.
       direct: typeof got.direct === "string" ? got.direct : got.direct && got.master ? got.master : null,
@@ -800,7 +866,7 @@ function createHandler(hooks = {}) {
     if (!/^https?:$/.test(target.protocol) || !tok.hosts.includes(target.host)) {
       return json(request, env, 403, { error: "not_allowed", message: "That host isn't part of this stream." });
     }
-    const headers = { "User-Agent": UA, Accept: "*/*", "Accept-Language": "en-US,en;q=0.9" };
+    const headers = { "User-Agent": tok.ua || UA, Accept: "*/*", "Accept-Language": "en-US,en;q=0.9" };
     if (tok.referer) {
       headers.Referer = tok.referer;
       headers.Origin = tok.referer.replace(/\/$/, "");
@@ -868,7 +934,7 @@ function createHandler(hooks = {}) {
       const before = hosts.size;
       playlistTargets(text, finalUrl).forEach((t) => hosts.add(new URL(t).host));
       hosts.add(new URL(finalUrl).host);
-      const token = hosts.size === before ? url.searchParams.get("t") : await makeToken(env.SIGNING_KEY, { referer: tok.referer, hosts: [...hosts], ttl: cfg.ttl });
+      const token = hosts.size === before ? url.searchParams.get("t") : await makeToken(env.SIGNING_KEY, { referer: tok.referer, ua: tok.ua, hosts: [...hosts], ttl: cfg.ttl });
       return new Response(rewritePlaylist(text, finalUrl, (u) => relayUrl(url.origin, token, u)), {
         status: 200,
         headers: { "Content-Type": "application/vnd.apple.mpegurl", "Cache-Control": "no-store", ...cors },
@@ -952,7 +1018,8 @@ function createHandler(hooks = {}) {
           const t = Date.now();
           try {
             const res = await RUN[id](cfg, m);
-            await verify(res.master || res.variants[0].u, res.referer);
+            if (res.kind === "mp4") await verifyFile(res.files[0].u, res.ua);
+            else await verify(res.master || res.variants[0].u, res.referer);
             out.sources[id] = { ok: true, ms: Date.now() - t };
           } catch (e) {
             out.sources[id] = { ok: false, error: e.code || "error", message: e.message, ms: Date.now() - t };
@@ -1013,7 +1080,7 @@ function createHandler(hooks = {}) {
           if (!/^https:$/.test(target.protocol)) throw new HttpError(400, "bad_url", "https only.");
           if (rateLimited(`r:${ip}`, 20, 60e3)) throw new HttpError(429, "slow_down", "Slow down.");
           const referer = p.get("ref") || "";
-          const headers = { "User-Agent": UA, Accept: "*/*", Range: "bytes=0-2047" };
+          const headers = { "User-Agent": clean(p.get("ua"), 300) || UA, Accept: "*/*", Range: "bytes=0-2047" };
           if (referer) {
             headers.Referer = referer;
             headers.Origin = referer.replace(/\/$/, "");
