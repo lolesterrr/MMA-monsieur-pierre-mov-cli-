@@ -1,83 +1,97 @@
-// Probe the deployed worker and Deno helper the way the site does, several times per server,
-// down to a video segment. Writes diag-out.json.
 import { writeFileSync } from "node:fs";
-const WORKER = "https://mma.kajjabwangulester.workers.dev";
-const DENO = "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net";
-const SITE = "https://lolesterrr.github.io";
-const H = { Origin: SITE, Referer: SITE + "/" };
-const out = { at: new Date().toISOString(), health: {}, runs: [] };
-
-async function timed(url, opts = {}, ms = 50000) {
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
+const out = {};
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function get(url, { headers = {}, method = "GET", body, ms = 20000 } = {}) {
   const t = Date.now();
   try {
-    const r = await fetch(url, { ...opts, headers: { ...H, ...(opts.headers || {}) }, signal: AbortSignal.timeout(ms) });
-    const buf = new Uint8Array(await r.arrayBuffer());
-    return { status: r.status, ms: Date.now() - t, bytes: buf.length, text: () => new TextDecoder().decode(buf), cors: r.headers.get("access-control-allow-origin") };
+    const r = await fetch(url, { method, body, headers: { "User-Agent": UA, Accept: "*/*", ...headers }, signal: AbortSignal.timeout(ms) });
+    const text = await r.text();
+    return { status: r.status, ms: Date.now() - t, text, cors: r.headers.get("access-control-allow-origin"), server: r.headers.get("server") };
   } catch (e) {
-    return { status: 0, ms: Date.now() - t, error: e.name === "TimeoutError" ? "timeout" : e.message, bytes: 0, text: () => "" };
+    return { status: 0, ms: Date.now() - t, text: "", error: e.message };
   }
 }
+const j = (r) => { try { return JSON.parse(r.text); } catch { return null; } };
+const brief = (r) => ({ status: r.status, ms: r.ms, error: r.error, head: r.text.slice(0, 200) });
 const lines = (t) => t.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
-
-async function walk(url) {
-  // master -> last variant -> first segment
-  const a = await timed(url, {}, 20000);
-  const res = { playlist: a.status, playlistMs: a.ms, cors: a.cors };
-  if (a.status >= 300 || !a.text().startsWith("#EXTM3U")) return { ...res, ok: false, why: `playlist ${a.status} ${a.error || a.text().slice(0, 60)}` };
-  let text = a.text(), base = url;
-  if (/#EXT-X-STREAM-INF/.test(text)) {
-    base = new URL(lines(text).at(-1), base).href;
-    const v = await timed(base, {}, 20000);
-    if (v.status >= 300) return { ...res, ok: false, why: `variant ${v.status}` };
-    text = v.text();
-  }
+async function walk(url, headers) {
+  const a = await get(url, { headers });
+  if (a.status >= 300 || !a.text.trimStart().startsWith("#EXTM3U")) return { ok: false, playlist: brief(a) };
+  let text = a.text, base = url;
+  if (/#EXT-X-STREAM-INF/.test(text)) { base = new URL(lines(text).at(-1), base).href; text = (await get(base, { headers })).text; }
   const seg = new URL(lines(text)[0], base).href;
-  const s = await timed(seg, { headers: { Range: "bytes=0-65535" } }, 20000);
-  return { ...res, segment: s.status, segBytes: s.bytes, segMs: s.ms, segCors: s.cors, segHost: new URL(seg).host, ok: s.status < 300 && s.bytes > 1000 };
+  const s = await fetch(seg, { headers: { "User-Agent": UA, Range: "bytes=0-65535", ...headers } }).then(async (r) => ({ status: r.status, bytes: (await r.arrayBuffer()).byteLength, cors: r.headers.get("access-control-allow-origin") })).catch((e) => ({ status: 0, error: e.message }));
+  return { ok: s.status < 300 && s.bytes > 1000, playlistCors: a.cors, seg: s, segHost: new URL(seg).host };
 }
 
-async function cine(type, q) {
-  const r = await fetch(`https://v3-cinemeta.strem.io/catalog/${type}/top/search=${encodeURIComponent(q)}.json`);
-  const m = ((await r.json()).metas || [])[0];
-  const d = await (await fetch(`https://v3-cinemeta.strem.io/meta/${type}/${m.imdb_id || m.id}.json`)).json();
-  return d.meta;
-}
-const inception = await cine("movie", "Inception");
-const rehearsal = await cine("series", "The Rehearsal");
-const bb = await cine("series", "Breaking Bad");
-out.titles = [inception, rehearsal, bb].map((m) => `${m.name} ${m.imdb_id} tmdb ${m.moviedb_id}`);
-const q = (m, type, s, e) => `type=${type}&imdb=${m.imdb_id}&tmdb=${m.moviedb_id || ""}&title=${encodeURIComponent(m.name)}&year=${(String(m.releaseInfo || m.year).match(/\d{4}/) || [""])[0]}${s ? `&s=${s}&e=${e}` : ""}`;
-const cases = [
-  ["Inception", q(inception, "movie")],
-  ["Rehearsal S1E1", q(rehearsal, "series", 1, 1)],
-  ["Rehearsal S2E1", q(rehearsal, "series", 2, 1)],
-  ["Breaking Bad S1E1", q(bb, "series", 1, 1)],
-];
-
-for (const [name, base] of [["worker", WORKER], ["deno", DENO]]) {
-  const h = await timed(`${base}/api/health`, {}, 15000);
-  const d = await timed(`${base}/api/health?deep=1`, {}, 60000);
-  let hj = null, dj = null;
-  try { hj = JSON.parse(h.text()); } catch {}
-  try { dj = JSON.parse(d.text()); } catch {}
-  out.health[name] = { status: h.status, version: hj && hj.version, servers: hj && hj.servers, deep: dj && dj.sources, deepStatus: d.status, deepMs: d.ms };
-}
-
-for (const [label, query] of cases) {
-  const servers = label === "Inception" ? ["auto", "videasy", "lookmovie", "hexa", "autoembed"] : ["auto", "videasy", "hexa", "autoembed"];
-  for (const server of servers) {
-    for (const [name, base] of [["worker", WORKER], ["deno", DENO]]) {
-      for (let i = 0; i < 3; i++) {
-        const r = await timed(`${base}/api/sources?${query}&server=${server}${i ? "&fresh=1" : ""}`, {}, 50000);
-        let j = {};
-        try { j = JSON.parse(r.text()); } catch {}
-        const run = { title: label, server, via: name, try: i + 1, status: r.status, ms: r.ms, got: j.server || null, error: j.error || r.error || null, message: j.message ? j.message.slice(0, 300) : null, tried: (j.tried || []).map((t) => `${t.server}:${t.error}:${(t.message || "").slice(0, 120)}`) };
-        if (j.master) run.relay = await walk(j.master);
-        if (j.direct) run.direct = await walk(j.direct);
-        out.runs.push(run);
-        console.log(JSON.stringify(run));
+// 1. Videasy: old vs new referer
+out.videasy = {};
+for (const ref of ["https://player.videasy.to/", "https://vidy.st/"]) {
+  const H = { Origin: ref.slice(0, -1), Referer: ref };
+  const seed = await get("https://api.wecollege.net/seed?mediaId=27205", { headers: H });
+  const res = { seed: brief(seed) };
+  const sd = j(seed);
+  if (sd && sd.seed) {
+    res.servers = {};
+    for (const server of ["miami", "boise", "vegas", "reno", "oakland"]) {
+      const q = `title=${encodeURIComponent(encodeURIComponent("Inception"))}&mediaType=movie&year=2010&tmdbId=27205&imdbId=tt1375666&enc=2&seed=${encodeURIComponent(sd.seed)}`;
+      const enc = await get(`https://api.wecollege.net/${server}/sources?${q}`, { headers: H });
+      const r = { enc: { status: enc.status, len: enc.text.length, head: enc.text.slice(0, 80) } };
+      if (enc.status === 200 && enc.text.length > 20) {
+        const dec = await get("https://enc-dec.app/api/dec-videasy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: enc.text, id: "27205", seed: sd.seed }) });
+        const dj = j(dec);
+        r.dec = { status: dec.status, apiStatus: dj && dj.status, sources: dj && dj.result && (dj.result.sources || []).length };
+        const first = dj && dj.result && ((dj.result.sources || [])[0] || {}).url;
+        if (first) r.play = await walk(first, H);
       }
+      res.servers[server] = r;
     }
   }
+  out.videasy[ref] = res;
+}
+
+// 2. Hexa: 15 runs, which step fails
+out.hexa = [];
+for (let i = 0; i < 15; i++) {
+  const run = {};
+  const tok = await get("https://enc-dec.app/api/enc-hexa");
+  const tj = j(tok);
+  run.encHexa = { status: tok.status, api: tj && tj.status, ms: tok.ms, err: tj && tj.error, head: tj ? undefined : tok.text.slice(0, 80) };
+  const token = tj && tj.result && tj.result.token;
+  if (token) {
+    const key = [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    const enc = await get("https://theemoviedb.hexa.su/api/tmdb/movie/27205/images", { headers: { Referer: "https://hexa.su/", Accept: "text/plain", "X-Fingerprint-Lite": "e9136c41504646444", "X-Api-Key": key, "X-Cap-Token": token } });
+    run.images = { status: enc.status, len: enc.text.length, ms: enc.ms };
+    const dec = await get("https://enc-dec.app/api/dec-hexa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: enc.text, key }) });
+    const dj = j(dec);
+    run.decHexa = { status: dec.status, api: dj && dj.status, err: dj && dj.error, n: dj && dj.result && (dj.result.sources || []).length };
+  }
+  out.hexa.push(run);
+  await sleep(500);
+}
+
+// 3. VidLink: Inception, Rehearsal S1E1, Breaking Bad S1E1
+out.vidlink = {};
+const VL = { Origin: "https://vidlink.pro", Referer: "https://vidlink.pro/" };
+for (const [name, type, tmdb, s, e] of [["Inception", "movie", "27205"], ["Rehearsal S1E1", "tv", "204284", 1, 1], ["Rehearsal S2E1", "tv", "204284", 2, 1], ["Breaking Bad S1E1", "tv", "1396", 1, 1]]) {
+  const enc = await get(`https://enc-dec.app/api/enc-vidlink?text=${tmdb}`);
+  const ej = j(enc);
+  const r = { enc: { status: enc.status, api: ej && ej.status, err: ej && ej.error } };
+  const id = ej && ej.result;
+  if (id) {
+    const url = `https://vidlink.pro/api/b/${type}/${encodeURIComponent(id)}${type === "tv" ? `/${s}/${e}` : ""}`;
+    const d = await get(url, { headers: VL });
+    r.api = { status: d.status, ms: d.ms, head: d.text.slice(0, 1500) };
+    const dj = j(d);
+    const pl = dj && dj.stream && (dj.stream.playlist || (dj.stream.qualities && Object.values(dj.stream.qualities)[0]?.url));
+    if (pl) {
+      r.withReferer = await walk(pl, VL);
+      r.noReferer = await walk(pl, {});
+      r.fromSite = await walk(pl, { Origin: "https://lolesterrr.github.io", Referer: "https://lolesterrr.github.io/" });
+    }
+  }
+  out.vidlink[name] = r;
 }
 writeFileSync("diag-out.json", JSON.stringify(out, null, 1));
+console.log(JSON.stringify(out).slice(0, 3000));
