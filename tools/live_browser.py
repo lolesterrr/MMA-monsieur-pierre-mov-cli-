@@ -6,9 +6,8 @@ SITE = "https://lolesterrr.github.io/MMA-monsieur-pierre-mov-cli-/"
 CASES = [
     ("rehearsal-s1e1-videasy", "#/watch/series/tt10802170/1/1?server=videasy"),
     ("rehearsal-s1e1-auto", "#/watch/series/tt10802170/1/1"),
-    ("bb-s1e1-videasy", "#/watch/series/tt0903747/1/1?server=videasy"),
-    ("inception-videasy", "#/watch/movie/tt1375666?server=videasy"),
-    ("inception-auto", "#/watch/movie/tt1375666"),
+    ("rehearsal-s1e1-vidlink", "#/watch/series/tt10802170/1/1?server=vidlink"),
+    ("rehearsal-s2e3-vidlink", "#/watch/series/tt10802170/2/3?server=vidlink"),
 ]
 os.makedirs("diag-shots", exist_ok=True)
 out = {}
