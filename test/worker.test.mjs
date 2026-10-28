@@ -160,6 +160,17 @@ test("series episodes, on the second videasy server when the first has nothing",
   assert.ok(fake.requests.some((r) => r.path.startsWith("/videasy/boise/sources") && r.path.includes("seasonId=1&") && r.path.includes("episodeId=3&")));
 });
 
+test("a videasy source that is itself a master plays as the master, not nested in a made-up one", async () => {
+  const { status, body } = await askJson("/api/sources?type=series&imdb=tt0000202&tmdb=9202&title=Stranger%20Naps&year=2016&s=1&e=4&server=videasy&fresh=1");
+  assert.equal(status, 200);
+  assert.ok(body.master.startsWith(`${ORIGIN}/p?`), body.master);
+  const master = await (await ask(body.master)).text();
+  assert.match(master, /#EXT-X-STREAM-INF/);
+  const level = await (await ask(master.split("\n").find((l) => l.startsWith(`${ORIGIN}/p?`)))).text();
+  assert.match(level, /#EXTINF/);
+  assert.doesNotMatch(level, /#EXT-X-STREAM-INF/);
+});
+
 test("picking a server: hexa for a series works, lookmovie for a series doesn't", async () => {
   const h = await askJson("/api/sources?type=series&imdb=tt0000201&tmdb=9201&title=Breaking%20Nap&year=2008&s=2&e=1&server=hexa");
   assert.equal(h.body.server, "hexa");
