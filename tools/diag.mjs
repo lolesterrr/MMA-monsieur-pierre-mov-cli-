@@ -1,83 +1,48 @@
-// Probe the deployed worker and Deno helper the way the site does, several times per server,
-// down to a video segment. Writes diag-out.json.
+// What does the relay make of the playlists hls.js can't parse? Runs the worker code here.
 import { writeFileSync } from "node:fs";
-const WORKER = "https://mma.kajjabwangulester.workers.dev";
-const DENO = "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net";
-const SITE = "https://lolesterrr.github.io";
-const H = { Origin: SITE, Referer: SITE + "/" };
-const out = { at: new Date().toISOString(), health: {}, runs: [] };
-
-async function timed(url, opts = {}, ms = 50000) {
-  const t = Date.now();
-  try {
-    const r = await fetch(url, { ...opts, headers: { ...H, ...(opts.headers || {}) }, signal: AbortSignal.timeout(ms) });
-    const buf = new Uint8Array(await r.arrayBuffer());
-    return { status: r.status, ms: Date.now() - t, bytes: buf.length, text: () => new TextDecoder().decode(buf), cors: r.headers.get("access-control-allow-origin") };
-  } catch (e) {
-    return { status: 0, ms: Date.now() - t, error: e.name === "TimeoutError" ? "timeout" : e.message, bytes: 0, text: () => "" };
-  }
-}
+import { createHandler } from "../worker/core.js";
+const raw = [];
+const handle = createHandler({
+  upstream: async (url, init, kind) => {
+    const res = await fetch(url, init);
+    if (kind === "media") {
+      const copy = res.clone();
+      const type = res.headers.get("content-type") || "";
+      const buf = new Uint8Array(await copy.arrayBuffer());
+      const head = new TextDecoder().decode(buf.slice(0, 4000));
+      raw.push({ url, status: res.status, type, bytes: buf.length, head: /EXTM3U/.test(head) ? head : head.slice(0, 120) });
+    }
+    return res;
+  },
+});
+const env = { SIGNING_KEY: "diag-key" };
+const O = "https://w.test";
+const call = async (path) => {
+  const r = await handle(new Request(path.startsWith("http") ? path : O + path, { headers: { Origin: "https://lolesterrr.github.io" } }), env);
+  return { status: r.status, type: r.headers.get("content-type"), text: await r.text() };
+};
 const lines = (t) => t.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
-
-async function walk(url) {
-  // master -> last variant -> first segment
-  const a = await timed(url, {}, 20000);
-  const res = { playlist: a.status, playlistMs: a.ms, cors: a.cors };
-  if (a.status >= 300 || !a.text().startsWith("#EXTM3U")) return { ...res, ok: false, why: `playlist ${a.status} ${a.error || a.text().slice(0, 60)}` };
-  let text = a.text(), base = url;
-  if (/#EXT-X-STREAM-INF/.test(text)) {
-    base = new URL(lines(text).at(-1), base).href;
-    const v = await timed(base, {}, 20000);
-    if (v.status >= 300) return { ...res, ok: false, why: `variant ${v.status}` };
-    text = v.text();
-  }
-  const seg = new URL(lines(text)[0], base).href;
-  const s = await timed(seg, { headers: { Range: "bytes=0-65535" } }, 20000);
-  return { ...res, segment: s.status, segBytes: s.bytes, segMs: s.ms, segCors: s.cors, segHost: new URL(seg).host, ok: s.status < 300 && s.bytes > 1000 };
-}
-
-async function cine(type, q) {
-  const r = await fetch(`https://v3-cinemeta.strem.io/catalog/${type}/top/search=${encodeURIComponent(q)}.json`);
-  const m = ((await r.json()).metas || [])[0];
-  const d = await (await fetch(`https://v3-cinemeta.strem.io/meta/${type}/${m.imdb_id || m.id}.json`)).json();
-  return d.meta;
-}
-const inception = await cine("movie", "Inception");
-const rehearsal = await cine("series", "The Rehearsal");
-const bb = await cine("series", "Breaking Bad");
-out.titles = [inception, rehearsal, bb].map((m) => `${m.name} ${m.imdb_id} tmdb ${m.moviedb_id}`);
-const q = (m, type, s, e) => `type=${type}&imdb=${m.imdb_id}&tmdb=${m.moviedb_id || ""}&title=${encodeURIComponent(m.name)}&year=${(String(m.releaseInfo || m.year).match(/\d{4}/) || [""])[0]}${s ? `&s=${s}&e=${e}` : ""}`;
-const cases = [
-  ["Inception", q(inception, "movie")],
-  ["Rehearsal S1E1", q(rehearsal, "series", 1, 1)],
-  ["Rehearsal S2E1", q(rehearsal, "series", 2, 1)],
-  ["Breaking Bad S1E1", q(bb, "series", 1, 1)],
-];
-
-for (const [name, base] of [["worker", WORKER], ["deno", DENO]]) {
-  const h = await timed(`${base}/api/health`, {}, 15000);
-  const d = await timed(`${base}/api/health?deep=1`, {}, 60000);
-  let hj = null, dj = null;
-  try { hj = JSON.parse(h.text()); } catch {}
-  try { dj = JSON.parse(d.text()); } catch {}
-  out.health[name] = { status: h.status, version: hj && hj.version, servers: hj && hj.servers, deep: dj && dj.sources, deepStatus: d.status, deepMs: d.ms };
-}
-
-for (const [label, query] of cases) {
-  const servers = label === "Inception" ? ["auto", "videasy", "lookmovie", "hexa", "autoembed"] : ["auto", "videasy", "hexa", "autoembed"];
-  for (const server of servers) {
-    for (const [name, base] of [["worker", WORKER], ["deno", DENO]]) {
-      for (let i = 0; i < 3; i++) {
-        const r = await timed(`${base}/api/sources?${query}&server=${server}${i ? "&fresh=1" : ""}`, {}, 50000);
-        let j = {};
-        try { j = JSON.parse(r.text()); } catch {}
-        const run = { title: label, server, via: name, try: i + 1, status: r.status, ms: r.ms, got: j.server || null, error: j.error || r.error || null, message: j.message ? j.message.slice(0, 300) : null, tried: (j.tried || []).map((t) => `${t.server}:${t.error}:${(t.message || "").slice(0, 120)}`) };
-        if (j.master) run.relay = await walk(j.master);
-        if (j.direct) run.direct = await walk(j.direct);
-        out.runs.push(run);
-        console.log(JSON.stringify(run));
-      }
+const out = {};
+for (const [name, q] of [
+  ["rehearsal-s1e1-videasy", "type=series&imdb=tt10802170&tmdb=204284&title=The%20Rehearsal&year=2022&s=1&e=1&server=videasy"],
+  ["prestige-hexa", "type=movie&imdb=tt0482571&tmdb=1124&title=The%20Prestige&year=2006&server=hexa"],
+  ["prestige-videasy", "type=movie&imdb=tt0482571&tmdb=1124&title=The%20Prestige&year=2006&server=videasy"],
+]) {
+  raw.length = 0;
+  const s = await call(`/api/sources?${q}`);
+  const r = { sources: s.status, body: s.text.slice(0, 400) };
+  let j = null;
+  try { j = JSON.parse(s.text); } catch {}
+  if (j && j.master) {
+    const m = await call(j.master.replace(/^https?:\/\/[^/]+/, O));
+    r.master = { status: m.status, type: m.type, text: m.text.slice(0, 3000) };
+    const level = lines(m.text).at(-1);
+    if (level) {
+      const l = await call(level);
+      r.level = { status: l.status, type: l.type, text: l.text.slice(0, 4000) };
     }
   }
+  r.upstream = raw.slice(0, 6).map((x) => ({ ...x, head: x.head.slice(0, 3500) }));
+  out[name] = r;
 }
 writeFileSync("diag-out.json", JSON.stringify(out, null, 1));
