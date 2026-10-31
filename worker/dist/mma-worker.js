@@ -46,7 +46,7 @@
  *   ENCDEC_URL, VIDEASY_URL, LOOKMOVIE_URL, HEXA_URL, AUTOEMBED_URL, VIDLINK_URL, SUBS_URL   override hosts (tests, mirrors)
  */
 
-const VERSION = "1.0.0";
+const VERSION = "1.1.0"; // bump on every worker change, so /api/health shows which code a host is running
 
 const DEFAULTS = {
   GITHUB_REPO: "lolesterrr/MMA-monsieur-pierre-mov-cli-",
