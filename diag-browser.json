@@ -1,0 +1,236 @@
+{
+ "ycse-auto": {
+  "api": [
+   {
+    "url": "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/api/sources?type=movie&imdb=tt45368240&tmdb=1765072&title=You+Can+See+Everything&year=2026&server=auto",
+    "status": 200,
+    "body": "{\"server\":\"vidlink\",\"name\":\"VidLink\",\"type\":\"movie\",\"imdb\":\"tt45368240\",\"kind\":\"mp4\",\"files\":[{\"h\":1080,\"codec\":\"h264\",\"url\":\"https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484046.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPIENQSDI1Nzk7IEJ1aWxkL0FQM0EuMjQwOTA1LjAxNS5BMjsgQ3JvbmV0LzE0MC4wLjczMzkuNTEp.YmNkbi5oYWt1bmF5bWF0YXRhLmNvbSxjYWNkbi5oYWt1bmF5bWF0YXRhLmNvbSxzdWJzNS5zdHJlbS5pbw.DwikHk3H0GlZttVWNQ4DTYkS&u=https%3A%2F%2Fbcdn.hakunaymatata.com%2Fresource%2F52f125aa3bd2658b208ddbfe827c5369.mp4%3Fsign%3D2037e3a7bc7b66cc479b87104d2844a4%26t%3D1793373486\"},{\"h\":480,\"codec\":\"hevc\",\"url\":\"https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484046.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPIENQSDI1Nzk7IEJ1aWxkL0FQM0EuMjQwOTA1LjAxNS5BMjsgQ3JvbmV0LzE0MC4wLjczMzkuNTEp.YmNkbi5oYWt1bmF5bWF0YXRhLmNvbSxjYWNkbi5oYWt1bmF5bWF0YXRhLmNvbSxzdWJzNS5zdHJlbS5pbw.DwikHk3H0GlZttVWNQ4DTYkS&u=https%3A%2F%2Fbcdn.hakunaymatata.com%2Fresource%2Fh265%2F651174d2a35f2823e7c86082df51498c.mp4%3Fsign%3D4f365118d5abf92cba69fe2f21c67f4a%26t%3D1793373486\"},{\"h\":360,\"codec\":\"hevc\",\"url\":\"https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484046.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPIENQSDI1Nzk7IEJ1aWxkL0FQM0EuMjQwOTA1LjAxNS5BMjsgQ3JvbmV0LzE0MC4wLjczMzkuNTEp.YmNkbi5oYWt1bmF5bWF0YXRhLmNvbSxjYWNkbi5oYWt1bmF5bWF0YXRhLmNvbSxzdWJzNS5zdHJlbS5pb",
+    "t": 6.9
+   },
+   {
+    "url": "https://mma.kajjabwangulester.workers.dev/api/sources?type=movie&imdb=tt45368240&tmdb=1765072&title=You+Can+See+Everything&year=2026&server=auto",
+    "status": 404,
+    "body": "{\"error\":\"no_source\",\"message\":\"Videasy: Videasy answered HTTP 429. LookMovie: LookMovie answered HTTP 403. Hexa: The stream link answered HTTP 502. VidLink: The video file answered HTTP 427.\",\"tried\":[{\"server\":\"videasy\",\"name\":\"Videasy\",\"error\":\"upstream\",\"message\":\"Videasy answered HTTP 429.\"},{\"server\":\"lookmovie\",\"name\":\"LookMovie\",\"error\":\"upstream\",\"message\":\"LookMovie answered HTTP 403.\"},{\"server\":\"hexa\",\"name\":\"Hexa\",\"error\":\"dead_link\",\"message\":\"The stream link answered HTTP 502.\"},{\"server\":\"vidlink\",\"name\":\"VidLink\",\"error\":\"dead_link\",\"message\":\"The video file answered HTTP 427.\"}],\"servers\":[{\"id\":\"videasy\",\"name\":\"Videasy\",\"note\":\"Up to 4K\"},{\"id\":\"lookmovie\",\"name\":\"LookMovie\",\"note\":\"Lots of subtitles, plays direct\"},{\"id\":\"hexa\",\"name\":\"Hexa\",\"note\":\"Slow to start, light on the worker\"},{\"id\":\"autoembed\",\"name\":\"AutoEmbed\",\"note\":\"One quality, by IMDb id\"},{\"id\":\"vidlink\",\"name\":\"VidLink\",\"note\":\"MP4 files, has some episodes the others don't\"}]}",
+    "t": 8.2
+   }
+  ],
+  "media": [
+   {
+    "url": "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484046.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPI",
+    "status": 206,
+    "type": "video/mp4",
+    "len": "3301297645",
+    "t": 8.5
+   },
+   {
+    "url": "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484046.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPI",
+    "status": 206,
+    "type": "video/mp4",
+    "len": "3294711277",
+    "t": 9.0
+   },
+   {
+    "url": "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484046.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPI",
+    "status": 206,
+    "type": "video/mp4",
+    "len": "3290287597",
+    "t": 9.0
+   }
+  ],
+  "failed": [
+   "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484046.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPI net::ERR_ABORTED",
+   "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484046.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPI net::ERR_ABORTED"
+  ],
+  "console": [
+   "error: Failed to load resource: the server responded with a status of 404 ()"
+  ],
+  "pageerrors": [],
+  "final": {
+   "t": 3.878649,
+   "ready": 4,
+   "err": null,
+   "problem": null,
+   "toasts": [],
+   "stage": null
+  },
+  "seconds": 13.1
+ },
+ "ycse-vidlink": {
+  "api": [
+   {
+    "url": "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/api/sources?type=movie&imdb=tt45368240&tmdb=1765072&title=You+Can+See+Everything&year=2026&server=vidlink",
+    "status": 200,
+    "body": "{\"server\":\"vidlink\",\"name\":\"VidLink\",\"type\":\"movie\",\"imdb\":\"tt45368240\",\"kind\":\"mp4\",\"files\":[{\"h\":1080,\"codec\":\"h264\",\"url\":\"https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484053.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPIENQSDI1Nzk7IEJ1aWxkL0FQM0EuMjQwOTA1LjAxNS5BMjsgQ3JvbmV0LzE0MC4wLjczMzkuNTEp.YmNkbi5oYWt1bmF5bWF0YXRhLmNvbSxjYWNkbi5oYWt1bmF5bWF0YXRhLmNvbSxzdWJzNS5zdHJlbS5pbw._glhBwZxEURMjrqEd2xTfQ5r&u=https%3A%2F%2Fbcdn.hakunaymatata.com%2Fresource%2F52f125aa3bd2658b208ddbfe827c5369.mp4%3Fsign%3D2037e3a7bc7b66cc479b87104d2844a4%26t%3D1793373486\"},{\"h\":480,\"codec\":\"hevc\",\"url\":\"https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484053.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPIENQSDI1Nzk7IEJ1aWxkL0FQM0EuMjQwOTA1LjAxNS5BMjsgQ3JvbmV0LzE0MC4wLjczMzkuNTEp.YmNkbi5oYWt1bmF5bWF0YXRhLmNvbSxjYWNkbi5oYWt1bmF5bWF0YXRhLmNvbSxzdWJzNS5zdHJlbS5pbw._glhBwZxEURMjrqEd2xTfQ5r&u=https%3A%2F%2Fbcdn.hakunaymatata.com%2Fresource%2Fh265%2F651174d2a35f2823e7c86082df51498c.mp4%3Fsign%3D4f365118d5abf92cba69fe2f21c67f4a%26t%3D1793373486\"},{\"h\":360,\"codec\":\"hevc\",\"url\":\"https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484053.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPIENQSDI1Nzk7IEJ1aWxkL0FQM0EuMjQwOTA1LjAxNS5BMjsgQ3JvbmV0LzE0MC4wLjczMzkuNTEp.YmNkbi5oYWt1bmF5bWF0YXRhLmNvbSxjYWNkbi5oYWt1bmF5bWF0YXRhLmNvbSxzdWJzNS5zdHJlbS5pb",
+    "t": 0.3
+   },
+   {
+    "url": "https://mma.kajjabwangulester.workers.dev/api/sources?type=movie&imdb=tt45368240&tmdb=1765072&title=You+Can+See+Everything&year=2026&server=vidlink",
+    "status": 404,
+    "body": "{\"error\":\"no_source\",\"message\":\"VidLink: The video file answered HTTP 427.\",\"tried\":[{\"server\":\"vidlink\",\"name\":\"VidLink\",\"error\":\"dead_link\",\"message\":\"The video file answered HTTP 427.\"}],\"servers\":[{\"id\":\"videasy\",\"name\":\"Videasy\",\"note\":\"Up to 4K\"},{\"id\":\"lookmovie\",\"name\":\"LookMovie\",\"note\":\"Lots of subtitles, plays direct\"},{\"id\":\"hexa\",\"name\":\"Hexa\",\"note\":\"Slow to start, light on the worker\"},{\"id\":\"autoembed\",\"name\":\"AutoEmbed\",\"note\":\"One quality, by IMDb id\"},{\"id\":\"vidlink\",\"name\":\"VidLink\",\"note\":\"MP4 files, has some episodes the others don't\"}]}",
+    "t": 1.0
+   }
+  ],
+  "media": [
+   {
+    "url": "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484053.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPI",
+    "status": 206,
+    "type": "video/mp4",
+    "len": "3301297645",
+    "t": 1.1
+   },
+   {
+    "url": "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484053.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPI",
+    "status": 206,
+    "type": "video/mp4",
+    "len": "3292188141",
+    "t": 1.5
+   }
+  ],
+  "failed": [
+   "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484053.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPI net::ERR_ABORTED",
+   "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484053.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPI net::ERR_ABORTED"
+  ],
+  "console": [
+   "error: Failed to load resource: the server responded with a status of 404 ()"
+  ],
+  "pageerrors": [],
+  "final": {
+   "t": 3.254298,
+   "ready": 4,
+   "err": null,
+   "problem": null,
+   "toasts": [],
+   "stage": null
+  },
+  "seconds": 5.1
+ },
+ "ycse-hexa": {
+  "api": [
+   {
+    "url": "https://mma.kajjabwangulester.workers.dev/api/sources?type=movie&imdb=tt45368240&tmdb=1765072&title=You+Can+See+Everything&year=2026&server=hexa",
+    "status": 404,
+    "body": "{\"error\":\"no_source\",\"message\":\"Hexa: Hexa answered HTTP 403.\",\"tried\":[{\"server\":\"hexa\",\"name\":\"Hexa\",\"error\":\"upstream\",\"message\":\"Hexa answered HTTP 403.\"}],\"servers\":[{\"id\":\"videasy\",\"name\":\"Videasy\",\"note\":\"Up to 4K\"},{\"id\":\"lookmovie\",\"name\":\"LookMovie\",\"note\":\"Lots of subtitles, plays direct\"},{\"id\":\"hexa\",\"name\":\"Hexa\",\"note\":\"Slow to start, light on the worker\"},{\"id\":\"autoembed\",\"name\":\"AutoEmbed\",\"note\":\"One quality, by IMDb id\"},{\"id\":\"vidlink\",\"name\":\"VidLink\",\"note\":\"MP4 files, has some episodes the others don't\"}]}",
+    "t": 1.6
+   },
+   {
+    "url": "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/api/sources?type=movie&imdb=tt45368240&tmdb=1765072&title=You+Can+See+Everything&year=2026&server=hexa",
+    "status": 404,
+    "body": "{\"error\":\"no_source\",\"message\":\"Hexa: Hexa turned down 4 captcha tokens in a row. Try again in a minute.\",\"tried\":[{\"server\":\"hexa\",\"name\":\"Hexa\",\"error\":\"captcha\",\"message\":\"Hexa turned down 4 captcha tokens in a row. Try again in a minute.\"}],\"servers\":[{\"id\":\"videasy\",\"name\":\"Videasy\",\"note\":\"Up to 4K\"},{\"id\":\"lookmovie\",\"name\":\"LookMovie\",\"note\":\"Lots of subtitles, plays direct\"},{\"id\":\"hexa\",\"name\":\"Hexa\",\"note\":\"Slow to start, light on the worker\"},{\"id\":\"autoembed\",\"name\":\"AutoEmbed\",\"note\":\"One quality, by IMDb id\"},{\"id\":\"vidlink\",\"name\":\"VidLink\",\"note\":\"MP4 files, has some episodes the others don't\"}]}",
+    "t": 3.5
+   }
+  ],
+  "media": [],
+  "failed": [],
+  "console": [
+   "error: Failed to load resource: the server responded with a status of 404 ()",
+   "error: Failed to load resource: the server responded with a status of 404 ()"
+  ],
+  "pageerrors": [],
+  "final": {
+   "t": null,
+   "ready": null,
+   "err": null,
+   "problem": "Hexa doesn't have You Can See Everything\n\nAnother server might.\n\nHexa answered HTTP 403.\nHexa (via Deno): Hexa turned down 4 captcha tokens in a row. Try again in a minute.\nTry Videasy\nTry LookMovie\nTry VidLink\nTry again\nReport this\n\nError code: no_source",
+   "toasts": [],
+   "stage": "Hexa doesn't have You Can See Everything\n\nAnother server might.\n\nHexa answered HTTP 403.\nHexa (via Deno): Hexa turned down 4 captcha tokens in a row. Try again in a minute.\nTry Videasy\nTry LookMovie\nTry VidLink\nTry again\nReport this\n\nError code: no_source"
+  },
+  "seconds": 5.4
+ },
+ "inception-hexa": {
+  "api": [
+   {
+    "url": "https://mma.kajjabwangulester.workers.dev/api/sources?type=movie&imdb=tt1375666&tmdb=27205&title=Inception&year=2010&server=hexa",
+    "status": 404,
+    "body": "{\"error\":\"no_source\",\"message\":\"Hexa: Hexa answered HTTP 403.\",\"tried\":[{\"server\":\"hexa\",\"name\":\"Hexa\",\"error\":\"upstream\",\"message\":\"Hexa answered HTTP 403.\"}],\"servers\":[{\"id\":\"videasy\",\"name\":\"Videasy\",\"note\":\"Up to 4K\"},{\"id\":\"lookmovie\",\"name\":\"LookMovie\",\"note\":\"Lots of subtitles, plays direct\"},{\"id\":\"hexa\",\"name\":\"Hexa\",\"note\":\"Slow to start, light on the worker\"},{\"id\":\"autoembed\",\"name\":\"AutoEmbed\",\"note\":\"One quality, by IMDb id\"},{\"id\":\"vidlink\",\"name\":\"VidLink\",\"note\":\"MP4 files, has some episodes the others don't\"}]}",
+    "t": 1.0
+   },
+   {
+    "url": "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/api/sources?type=movie&imdb=tt1375666&tmdb=27205&title=Inception&year=2010&server=hexa",
+    "status": 404,
+    "body": "{\"error\":\"no_source\",\"message\":\"Hexa: Hexa turned down 4 captcha tokens in a row. Try again in a minute.\",\"tried\":[{\"server\":\"hexa\",\"name\":\"Hexa\",\"error\":\"captcha\",\"message\":\"Hexa turned down 4 captcha tokens in a row. Try again in a minute.\"}],\"servers\":[{\"id\":\"videasy\",\"name\":\"Videasy\",\"note\":\"Up to 4K\"},{\"id\":\"lookmovie\",\"name\":\"LookMovie\",\"note\":\"Lots of subtitles, plays direct\"},{\"id\":\"hexa\",\"name\":\"Hexa\",\"note\":\"Slow to start, light on the worker\"},{\"id\":\"autoembed\",\"name\":\"AutoEmbed\",\"note\":\"One quality, by IMDb id\"},{\"id\":\"vidlink\",\"name\":\"VidLink\",\"note\":\"MP4 files, has some episodes the others don't\"}]}",
+    "t": 3.0
+   }
+  ],
+  "media": [],
+  "failed": [],
+  "console": [
+   "error: Failed to load resource: the server responded with a status of 404 ()",
+   "error: Failed to load resource: the server responded with a status of 404 ()"
+  ],
+  "pageerrors": [],
+  "final": {
+   "t": null,
+   "ready": null,
+   "err": null,
+   "problem": "Hexa doesn't have Inception\n\nAnother server might.\n\nHexa answered HTTP 403.\nHexa (via Deno): Hexa turned down 4 captcha tokens in a row. Try again in a minute.\nTry Videasy\nTry LookMovie\nTry VidLink\nTry again\nReport this\n\nError code: no_source",
+   "toasts": [],
+   "stage": "Hexa doesn't have Inception\n\nAnother server might.\n\nHexa answered HTTP 403.\nHexa (via Deno): Hexa turned down 4 captcha tokens in a row. Try again in a minute.\nTry Videasy\nTry LookMovie\nTry VidLink\nTry again\nReport this\n\nError code: no_source"
+  },
+  "seconds": 5.1
+ },
+ "bb-s1e2-hexa": {
+  "api": [
+   {
+    "url": "https://mma.kajjabwangulester.workers.dev/api/sources?type=series&imdb=tt0903747&tmdb=1396&title=Breaking+Bad&year=2008&s=1&e=2&server=hexa",
+    "status": 404,
+    "body": "{\"error\":\"no_source\",\"message\":\"Hexa: Hexa answered HTTP 403.\",\"tried\":[{\"server\":\"hexa\",\"name\":\"Hexa\",\"error\":\"upstream\",\"message\":\"Hexa answered HTTP 403.\"}],\"servers\":[{\"id\":\"videasy\",\"name\":\"Videasy\",\"note\":\"Up to 4K\"},{\"id\":\"hexa\",\"name\":\"Hexa\",\"note\":\"Slow to start, light on the worker\"},{\"id\":\"autoembed\",\"name\":\"AutoEmbed\",\"note\":\"One quality, by IMDb id\"},{\"id\":\"vidlink\",\"name\":\"VidLink\",\"note\":\"MP4 files, has some episodes the others don't\"}]}",
+    "t": 1.1
+   },
+   {
+    "url": "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/api/sources?type=series&imdb=tt0903747&tmdb=1396&title=Breaking+Bad&year=2008&s=1&e=2&server=hexa",
+    "status": 404,
+    "body": "{\"error\":\"no_source\",\"message\":\"Hexa: Hexa turned down 4 captcha tokens in a row. Try again in a minute.\",\"tried\":[{\"server\":\"hexa\",\"name\":\"Hexa\",\"error\":\"captcha\",\"message\":\"Hexa turned down 4 captcha tokens in a row. Try again in a minute.\"}],\"servers\":[{\"id\":\"videasy\",\"name\":\"Videasy\",\"note\":\"Up to 4K\"},{\"id\":\"hexa\",\"name\":\"Hexa\",\"note\":\"Slow to start, light on the worker\"},{\"id\":\"autoembed\",\"name\":\"AutoEmbed\",\"note\":\"One quality, by IMDb id\"},{\"id\":\"vidlink\",\"name\":\"VidLink\",\"note\":\"MP4 files, has some episodes the others don't\"}]}",
+    "t": 3.3
+   }
+  ],
+  "media": [],
+  "failed": [],
+  "console": [
+   "error: Failed to load resource: the server responded with a status of 404 ()",
+   "error: Failed to load resource: the server responded with a status of 404 ()"
+  ],
+  "pageerrors": [],
+  "final": {
+   "t": null,
+   "ready": null,
+   "err": null,
+   "problem": "Hexa doesn't have S1 E2\n\nAnother server might.\n\nHexa answered HTTP 403.\nHexa (via Deno): Hexa turned down 4 captcha tokens in a row. Try again in a minute.\nTry Videasy\nTry VidLink\nTry again\nReport this\n\nError code: no_source",
+   "toasts": [],
+   "stage": "Hexa doesn't have S1 E2\n\nAnother server might.\n\nHexa answered HTTP 403.\nHexa (via Deno): Hexa turned down 4 captcha tokens in a row. Try again in a minute.\nTry Videasy\nTry VidLink\nTry again\nReport this\n\nError code: no_source"
+  },
+  "seconds": 5.1
+ },
+ "rehearsal-s1e1-auto": {
+  "api": [
+   {
+    "url": "https://mma.kajjabwangulester.workers.dev/api/sources?type=series&imdb=tt10802170&tmdb=204284&title=The+Rehearsal&year=2022&s=1&e=1&server=auto",
+    "status": 404,
+    "body": "{\"error\":\"no_source\",\"message\":\"Videasy: Videasy answered HTTP 429. Hexa: Hexa answered HTTP 403. (skipped for now) VidLink: The video file answered HTTP 427.\",\"tried\":[{\"server\":\"videasy\",\"name\":\"Videasy\",\"error\":\"upstream\",\"message\":\"Videasy answered HTTP 429.\"},{\"server\":\"hexa\",\"name\":\"Hexa\",\"error\":\"refused\",\"message\":\"Hexa answered HTTP 403. (skipped for now)\"},{\"server\":\"vidlink\",\"name\":\"VidLink\",\"error\":\"dead_link\",\"message\":\"The video file answered HTTP 427.\"}],\"servers\":[{\"id\":\"videasy\",\"name\":\"Videasy\",\"note\":\"Up to 4K\"},{\"id\":\"hexa\",\"name\":\"Hexa\",\"note\":\"Slow to start, light on the worker\"},{\"id\":\"autoembed\",\"name\":\"AutoEmbed\",\"note\":\"One quality, by IMDb id\"},{\"id\":\"vidlink\",\"name\":\"VidLink\",\"note\":\"MP4 files, has some episodes the others don't\"}]}",
+    "t": 2.5
+   },
+   {
+    "url": "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/api/sources?type=series&imdb=tt10802170&tmdb=204284&title=The+Rehearsal&year=2022&s=1&e=1&server=auto",
+    "status": 200,
+    "body": "{\"server\":\"vidlink\",\"name\":\"VidLink\",\"type\":\"series\",\"imdb\":\"tt10802170\",\"kind\":\"mp4\",\"files\":[{\"h\":480,\"codec\":\"hevc\",\"url\":\"https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484078.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPIENQSDI1Nzk7IEJ1aWxkL0FQM0EuMjQwOTA1LjAxNS5BMjsgQ3JvbmV0LzE0MC4wLjczMzkuNTEp.YmNkbjQuaGFrdW5heW1hdGF0YS5jb20sY2FjZG4uaGFrdW5heW1hdGF0YS5jb20sc3ViczUuc3RyZW0uaW8.LrkdtI6tJ75e-k68K8Ayg-Ib&u=https%3A%2F%2Fbcdn4.hakunaymatata.com%2Fjarocks%2Fffa0b3afc6696028dd3ae63f78565b90.mp4%3Fsign%3D3436ed4f81b0dbe2a13903567c364b70%26t%3D1793385753\"},{\"h\":360,\"codec\":\"hevc\",\"url\":\"https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484078.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPIENQSDI1Nzk7IEJ1aWxkL0FQM0EuMjQwOTA1LjAxNS5BMjsgQ3JvbmV0LzE0MC4wLjczMzkuNTEp.YmNkbjQuaGFrdW5heW1hdGF0YS5jb20sY2FjZG4uaGFrdW5heW1hdGF0YS5jb20sc3ViczUuc3RyZW0uaW8.LrkdtI6tJ75e-k68K8Ayg-Ib&u=https%3A%2F%2Fbcdn4.hakunaymatata.com%2Fbt%2F2fc42ad58ca080b74d4b5481a91dab8f.mp4%3Fsign%3D9d93260e5cac9afff50536601866fcf5%26t%3D1793385753\"}],\"master\":\"https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net/p?t=1793484078.CmNvbS5jb21tdW5pdHkub25lcm9vbS81MDAyMDExNSAoTGludXg7IFU7IEFuZHJvaWQgMTU7IGVuX1VTOyBPUFBPIENQSDI1Nzk7IEJ1aWxkL0FQM0EuMjQwOTA1LjAxNS5BMjsgQ3JvbmV0LzE0MC4wLjczMzkuNTEp.YmNkbjQuaGFrdW5heW1hdGF0YS5jb20sY2FjZG4uaGFrdW5heW1hdGF0YS5jb20sc3ViczUuc3RyZW0uaW8.LrkdtI6tJ75e-k68K8Ayg-Ib&u=",
+    "t": 4.5
+   }
+  ],
+  "media": [],
+  "failed": [],
+  "console": [
+   "error: Failed to load resource: the server responded with a status of 404 ()"
+  ],
+  "pageerrors": [],
+  "final": {
+   "t": null,
+   "ready": null,
+   "err": null,
+   "problem": "VidLink's copy is HEVC, which this browser can't play\n\nEdge, Safari, or Chrome on a computer whose graphics chip does HEVC can play it. Another server might have a copy that plays here.\n\nTry Videasy\nTry Hexa\nTry again\nReport this\n\nError code: hevc",
+   "toasts": [
+    "Playing from VidLink, found by the Deno helper"
+   ],
+   "stage": "VidLink's copy is HEVC, which this browser can't play\n\nEdge, Safari, or Chrome on a computer whose graphics chip does HEVC can play it. Another server might have a copy that plays here.\n\nTry Videasy\nTry Hexa\nTry again\nReport this\n\nError code: hevc"
+  },
+  "seconds": 5.1
+ }
+}
