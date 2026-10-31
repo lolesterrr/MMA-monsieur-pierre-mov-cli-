@@ -4,10 +4,12 @@ from playwright.sync_api import sync_playwright
 
 SITE = "https://lolesterrr.github.io/MMA-monsieur-pierre-mov-cli-/"
 CASES = [
-    ("rehearsal-s1e1-videasy", "#/watch/series/tt10802170/1/1?server=videasy"),
+    ("ycse-auto", "#/watch/movie/tt45368240"),
+    ("ycse-vidlink", "#/watch/movie/tt45368240?server=vidlink"),
+    ("ycse-hexa", "#/watch/movie/tt45368240?server=hexa"),
+    ("inception-hexa", "#/watch/movie/tt1375666?server=hexa"),
+    ("bb-s1e2-hexa", "#/watch/series/tt0903747/1/2?server=hexa"),
     ("rehearsal-s1e1-auto", "#/watch/series/tt10802170/1/1"),
-    ("rehearsal-s1e1-vidlink", "#/watch/series/tt10802170/1/1?server=vidlink"),
-    ("rehearsal-s2e3-vidlink", "#/watch/series/tt10802170/2/3?server=vidlink"),
 ]
 os.makedirs("diag-shots", exist_ok=True)
 out = {}
@@ -28,7 +30,7 @@ with sync_playwright() as p:
                 except Exception as e:
                     body = f"(no body: {e})"
                 rec["api"].append({"url": u[:220], "status": r.status, "body": body, "t": round(time.time() - rec["t0"], 1)})
-            elif "/p?" in u or "/m?" in u or ".m3u8" in u or ".ts" in u or "hexa" in u:
+            elif "/p?" in u or "/m?" in u or ".mp4" in u or ".m3u8" in u or ".ts" in u or "hexa" in u:
                 if len(rec["media"]) < 40:
                     rec["media"].append({"url": u[:160], "status": r.status, "type": r.headers.get("content-type"), "len": r.headers.get("content-length"), "t": round(time.time() - rec["t0"], 1)})
         page.on("response", on_resp)
