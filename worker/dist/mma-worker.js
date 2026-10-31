@@ -46,7 +46,7 @@
  *   ENCDEC_URL, VIDEASY_URL, LOOKMOVIE_URL, HEXA_URL, AUTOEMBED_URL, VIDLINK_URL, SUBS_URL   override hosts (tests, mirrors)
  */
 
-const VERSION = "1.0.0";
+const VERSION = "1.2.0"; // bump on every worker change, so /api/health shows which code a host is running
 
 const DEFAULTS = {
   GITHUB_REPO: "lolesterrr/MMA-monsieur-pierre-mov-cli-",
@@ -604,22 +604,35 @@ function createHandler(hooks = {}) {
 
   async function hexa(cfg, m) {
     if (!m.tmdb) throw new HttpError(404, "no_id", "Hexa needs the TMDB id, and Cinemeta doesn't have one for this.");
-    const key = randomHex(32);
-    const challenge = await encdec(cfg, "enc-hexa");
-    const token = challenge && challenge.token;
-    if (!token) throw new HttpError(502, "decrypt", "enc-dec.app didn't hand out a Hexa token.");
     const path = m.type === "series" ? `tv/${m.tmdb}/season/${m.s}/episode/${m.e}` : `movie/${m.tmdb}`;
-    const encrypted = await call(`${cfg.hexa}/api/tmdb/${path}/images`, {
-      headers: { Referer: HEXA_REFERER, Accept: "text/plain", "X-Fingerprint-Lite": "e9136c41504646444", "X-Api-Key": key, "X-Cap-Token": token },
-      timeout: 25000,
-      what: "Hexa",
-    });
+    // Hexa turns away about half of enc-dec.app's captcha tokens (HTTP 403 "captcha_required"):
+    // that's a bad token, not Hexa refusing us, so get a fresh one and ask again
+    let encrypted = null;
+    let key = "";
+    for (let attempt = 0; attempt < 4 && encrypted === null; attempt++) {
+      key = randomHex(32);
+      const challenge = await encdec(cfg, "enc-hexa");
+      const token = challenge && challenge.token;
+      if (!token) throw new HttpError(502, "decrypt", "enc-dec.app didn't hand out a Hexa token.");
+      try {
+        encrypted = await call(`${cfg.hexa}/api/tmdb/${path}/images`, {
+          headers: { Referer: HEXA_REFERER, Accept: "text/plain", "X-Fingerprint-Lite": "e9136c41504646444", "X-Api-Key": key, "X-Cap-Token": token },
+          timeout: 25000,
+          what: "Hexa",
+        });
+      } catch (e) {
+        if (!/captcha/i.test(e.body || "")) throw e;
+        if (attempt === 3) throw new HttpError(502, "captcha", "Hexa turned down 4 captcha tokens in a row. Try again in a minute.");
+        await wait(400);
+      }
+    }
     const res = await encdec(cfg, "dec-hexa", { method: "POST", json: { text: encrypted, key } });
     const list = ((res && res.sources) || []).filter((s) => s && s.url);
     if (!list.length) throw new HttpError(404, "no_source", "Hexa has nothing for this.");
-    // "alpha" is the plain stream; the others go through Hexa's own proxy
-    const pick = list.find((s) => s.server === "alpha") || list[0];
-    return { master: pick.url, variants: [], referer: "", direct: true, subtitles: [] };
+    // "alpha" is the plain stream; the others go through Hexa's own proxy. When one is dead, the
+    // others get a turn (alts).
+    const ordered = [...list.filter((s) => s.server === "alpha"), ...list.filter((s) => s.server !== "alpha")];
+    return { master: ordered[0].url, variants: [], referer: "", direct: true, subtitles: [], alts: ordered.slice(1).map((s) => s.url) };
   }
 
   /**
@@ -761,9 +774,28 @@ function createHandler(hooks = {}) {
             server = id;
             break;
           }
-          const first = res.master || (res.variants[0] && res.variants[0].u);
+          let first = res.master || (res.variants[0] && res.variants[0].u);
           if (!first) throw new HttpError(404, "no_source", "No stream link.");
-          const text = await verify(first, res.referer);
+          let text;
+          try {
+            text = await verify(first, res.referer);
+          } catch (e) {
+            // a dead link with other links from the same server: try those before giving up
+            const alts = (res.alts || []).slice(0, 3);
+            let found = false;
+            for (const alt of alts) {
+              try {
+                text = await verify(alt, res.referer);
+                res = { ...res, master: alt, alts: [] };
+                first = alt;
+                found = true;
+                break;
+              } catch {
+                /* next one */
+              }
+            }
+            if (!found) throw e;
+          }
           // a "quality" that is itself a master playlist (Videasy's backup servers do this) plays
           // as the master: wrapping it in a made-up master nests masters, and hls.js gives up
           // with levelParsingError
@@ -775,7 +807,8 @@ function createHandler(hooks = {}) {
         break;
       } catch (e) {
         tried.push({ server: id, name: SERVERS[id].name, error: e.code || "error", message: e.message || String(e) });
-        if (e.code === "blocked" || /HTTP (403|429)\b/.test(e.message || "")) memoSet(`refused:${id}`, e.message, 15 * 60e3);
+        // 403, 427 (MovieBox's video host) and 429 mean "not from this server": skip it on auto for a while
+        if (e.code === "blocked" || /HTTP (403|427|429)\b/.test(e.message || "")) memoSet(`refused:${id}`, e.message, 15 * 60e3);
       }
     }
     if (!got) {
@@ -784,8 +817,11 @@ function createHandler(hooks = {}) {
       throw new HttpError(blocked ? 503 : 404, blocked ? "blocked" : "no_source", msg || "No server has this.", { tried, servers: listServers(m.type) });
     }
 
-    // the lookup helper (deno/main.js) hands out links that play through the Cloudflare worker
-    const origin = cfg.relayOrigin || new URL(request.url).origin;
+    // the lookup helper (deno/main.js) hands out links that play through the Cloudflare worker,
+    // except MP4 files (VidLink's MovieBox host answers Cloudflare with HTTP 427): the helper
+    // carries those itself, which counts against Deno's free data (20 GiB a month)
+    const self = new URL(request.url).origin;
+    const origin = got.kind === "mp4" ? self : cfg.relayOrigin || self;
     const extra = await subsPromise;
     const allSubs = tidySubtitles([...got.subtitles, ...extra]);
     const files = got.kind === "mp4" ? got.files : [];

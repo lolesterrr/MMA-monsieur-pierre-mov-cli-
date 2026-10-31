@@ -134,7 +134,7 @@ function master(codec, prefix = "") {
  * set({ blocked: true }) makes every source answer with Cloudflare's bot check.
  */
 export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = process.env.FAKE_CODEC || "h264" } = {}) {
-  const state = { blocked: false, issues: [], requests: [], down: new Set(), busy: 0 };
+  const state = { blocked: false, issues: [], requests: [], down: new Set(), busy: 0, captcha: 0, alphaDead: false };
   const mediaDir = media ? ensureMedia(codec) : null;
   const host = {};
   const challenge = (res) =>
@@ -244,10 +244,18 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
     let m = p.match(/^\/hexa\/api\/tmdb\/(movie\/(\d+)|tv\/(\d+)\/season\/(\d+)\/episode\/(\d+))\/images$/);
     if (m) {
       if (req.headers["x-cap-token"] !== "cap-token" || !/^[0-9a-f]{64}$/.test(req.headers["x-api-key"] || "")) return send(res, 403, "", "text/plain");
+      // like the real one: about half of enc-dec.app's tokens get turned down
+      if (state.captcha > 0) {
+        state.captcha--;
+        return send(res, 403, { error: "captcha_required", message: "Valid captcha token required" });
+      }
       const x = byTmdb(m[2] || m[3]);
       if (!has(x, "h")) return send(res, 200, b64({ sources: [] }), "text/plain");
       const kind = m[3] ? `${x.id}/${m[4]}/${m[5]}` : x.id;
-      return send(res, 200, b64({ sources: [{ server: "charlie", url: `${host.open}/proxy?data=nope` }, { server: "alpha", url: `${host.open}/hx/${kind}/720/index.m3u8` }] }), "text/plain");
+      // alphaDead: the plain stream 404s, Hexa's proxied "bravo" one works
+      const alpha = state.alphaDead ? `${host.open}/hx/${kind}/gone/index.m3u8` : `${host.open}/hx/${kind}/720/index.m3u8`;
+      const bravo = state.alphaDead ? [{ server: "bravo", url: `${host.open}/hx/${kind}/360/index.m3u8` }] : [];
+      return send(res, 200, b64({ sources: [{ server: "charlie", url: `${host.open}/proxy?data=nope` }, { server: "alpha", url: alpha }, ...bravo] }), "text/plain");
     }
 
     // ---- lookmovie
@@ -369,6 +377,8 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
       if ("blocked" in opts) state.blocked = opts.blocked;
       if ("down" in opts) state.down = new Set(opts.down);
       if ("busy" in opts) state.busy = opts.busy;
+      if ("captcha" in opts) state.captcha = opts.captcha;
+      if ("alphaDead" in opts) state.alphaDead = opts.alphaDead;
     },
     stop: () => Promise.all(servers.map((s) => new Promise((r) => s.close(r)))),
   };

@@ -258,6 +258,37 @@ test("enc-dec.app's too-many-requests bursts get retried instead of failing Hexa
   }
 });
 
+test("Hexa's captcha 403s get a fresh token, and don't bench Hexa for 15 minutes", async () => {
+  const patient = createHandler({ sleep: () => Promise.resolve() });
+  const ask2 = async (path) => (await patient(new Request(`${ORIGIN}${path}`), env)).json();
+  fake.set({ captcha: 2 });
+  const ok = await ask2(movie("tt0000103", "9103", "Pierre Fiction", "1994", "&server=hexa&fresh=1"));
+  assert.equal(ok.server, "hexa");
+  fake.set({ captcha: 10 });
+  try {
+    const no = await ask2(movie("tt0000103", "9103", "Pierre Fiction", "1994", "&fresh=1"));
+    // Hexa said why; VidLink, next in line, had it
+    assert.match(no.tried.find((t) => t.server === "hexa").message, /captcha/);
+    assert.equal(no.server, "vidlink");
+  } finally {
+    fake.set({ captcha: 0 });
+  }
+  // the next auto lookup still asks Hexa
+  const again = await ask2(movie("tt0000103", "9103", "Pierre Fiction", "1994", "&fresh=1"));
+  assert.equal(again.server, "hexa");
+});
+
+test("a dead Hexa link: its other links get a turn", async () => {
+  fake.set({ alphaDead: true });
+  try {
+    const { status, body } = await askJson(movie("tt0000103", "9103", "Pierre Fiction", "1994", "&server=hexa&fresh=1"));
+    assert.equal(status, 200);
+    assert.match(body.direct, /\/hx\/tt0000103\/360\/index\.m3u8$/);
+  } finally {
+    fake.set({ alphaDead: false });
+  }
+});
+
 test("Cloudflare's bot check everywhere shows up as blocked", async () => {
   fake.set({ blocked: true });
   try {
@@ -362,4 +393,10 @@ test("the lookup helper's links play through the worker (shared SIGNING_KEY, REL
   const master = await ask(body.master);
   assert.equal(master.status, 200);
   assert.match(await master.text(), /^#EXTM3U/);
+  // VidLink's MP4s refuse Cloudflare, so the helper hands out links to itself for those
+  const vl = await (await helper(new Request(`https://helper.test${movie("tt0000103", "9103", "Pierre Fiction", "1994", "&server=vidlink")}`), { ...helperEnv, SERVERS: "videasy,hexa,vidlink" })).json();
+  assert.equal(vl.kind, "mp4");
+  assert.ok(vl.files.every((f) => f.url.startsWith("https://helper.test/p?")), vl.files[0].url);
+  const file = await helper(new Request(vl.files[0].url, { headers: { Range: "bytes=0-9" } }), helperEnv);
+  assert.equal(file.status, 206);
 });
