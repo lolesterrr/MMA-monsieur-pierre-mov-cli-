@@ -98,10 +98,79 @@ function wireSearch() {
   });
 }
 
+// ---- maintenance: config.maintenance shows everyone Pierre's notice; the owner's browser,
+// unlocked once with ?pierre=<passphrase>, gets the real site (and a small reminder)
+const PASS_KEY = "mma:pierre-pass";
+const storeGet = () => {
+  try {
+    return localStorage.getItem(PASS_KEY) || "";
+  } catch {
+    return "";
+  }
+};
+const storeSet = (v) => {
+  try {
+    if (v) localStorage.setItem(PASS_KEY, v);
+    else localStorage.removeItem(PASS_KEY);
+  } catch {
+    /* private window: the passphrase works for this visit only */
+  }
+};
+
+async function sha256(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** true when this visitor should see the maintenance page */
+async function underMaintenance() {
+  const cfg = window.MMA_CONFIG || {};
+  const url = new URL(location.href);
+  const given = url.searchParams.get("pierre");
+  let pass = storeGet();
+  if (given !== null) {
+    url.searchParams.delete("pierre");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+    if (given === "off") {
+      storeSet("");
+      pass = "";
+    } else {
+      pass = await sha256(given).catch(() => "");
+      storeSet(pass);
+    }
+  }
+  if (!cfg.maintenance) return false;
+  return !(cfg.maintenanceKey && pass === cfg.maintenanceKey);
+}
+
+function showMaintenance() {
+  document.body.dataset.view = "maintenance";
+  document.title = "MMA (under maintenance)";
+  for (const el of document.querySelectorAll(".top-search, .top .complain, .foot-links")) el.hidden = true;
+  main.innerHTML = `
+  <section class="maintenance" aria-labelledby="maint-title">
+    <span data-pierre="read" data-scale="6"></span>
+    <div>
+      <h1 id="maint-title">MMA is under maintenance.</h1>
+      <p class="bubble bubble-left">making it better..so yeah wait. Try reading a book or something .</p>
+    </div>
+  </section>`;
+  hydrate(main);
+}
+
 async function boot() {
   await loadPierre();
   hydrate(document.querySelector(".top"));
   hydrate(document.querySelector(".foot"));
+  if (await underMaintenance()) return showMaintenance();
+  if ((window.MMA_CONFIG || {}).maintenance) {
+    // the owner's view while everyone else sees the notice
+    const tag = document.createElement("p");
+    tag.className = "maint-tag";
+    tag.setAttribute("role", "status");
+    tag.innerHTML = 'Maintenance is on: only you see the site. <a href="?pierre=off">See what others see</a>';
+    document.body.prepend(tag);
+  }
   wireComplaints();
   wireSearch();
   document.querySelector("[data-backstage]").addEventListener("click", openBackstage);

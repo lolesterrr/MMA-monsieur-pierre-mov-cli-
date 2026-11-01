@@ -100,6 +100,10 @@ Complaints are public issues, and the desk says so. It attaches the page, the ti
 
 The [Worker workflow](.github/workflows/worker.yml) redeploys the worker whenever `worker/` changes, once you add two repo secrets: `CLOUDFLARE_API_TOKEN` (made from the "Edit Cloudflare Workers" template) and `CLOUDFLARE_ACCOUNT_ID`.
 
+### Maintenance mode
+
+Set `maintenance: true` in [`web/config.js`](web/config.js) and everyone gets Pierre's "under maintenance" page instead of the site. The owner keeps the real site: open it once with `?pierre=<passphrase>` (only the passphrase's SHA-256 is in `maintenanceKey`) and that browser remembers it, with a yellow strip as a reminder. `?pierre=off` shows you what everyone else sees. To pick a new passphrase: `printf %s 'new-passphrase' | sha256sum`. The local helper serves its own settings, so it ignores maintenance mode.
+
 ## The Deno helper: for sources that refuse Cloudflare
 
 Videasy and LookMovie refuse to hand links to Cloudflare's servers (Hexa doesn't mind). Videasy's video is fine going through Cloudflare, only the lookup gets refused. So [`deno/main.js`](deno/main.js) runs the same lookup code on [Deno Deploy](https://deno.com/deploy), which isn't Cloudflare, and hands back links that still play through the Cloudflare worker. A lookup is a few kilobytes, so Deno's free plan (1M requests and 20 GB a month) is far more than enough. The video never touches Deno.

@@ -7,6 +7,12 @@ window.MMA_CONFIG = {
   // the lookup helper on Deno Deploy (deno/main.js), for sources that refuse Cloudflare.
   // Leave it empty if you don't run one.
   lookup: "https://mma-monsieur-pierre-mov-cli.lolesterrr.deno.net",
+  // Maintenance: true shows everyone Pierre's "under maintenance" page instead of the site.
+  // The owner still gets the real site: open the site once with ?pierre=<the passphrase>
+  // (only its SHA-256 is here) and that browser remembers it. ?pierre=off forgets it again.
+  // The local helper (node local/server.mjs) doesn't use this file, so it always works.
+  maintenance: true,
+  maintenanceKey: "69764b09264b441d4d372cd67197eca6aa1336cda4f56db27f3100c8451d0f49",
   // the public movie and series catalog (search, posters, episode lists)
   catalog: "https://v3-cinemeta.strem.io",
 };

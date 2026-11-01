@@ -1628,3 +1628,44 @@ a.ep-row:focus-visible {
     transform: none;
   }
 }
+
+/* ---------- maintenance ---------- */
+
+.maintenance {
+  min-height: 56vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 4vw, 40px);
+  padding: 40px var(--side);
+  flex-wrap: wrap;
+  text-align: left;
+}
+.maintenance > div {
+  display: grid;
+  gap: 16px;
+  max-width: 560px;
+  justify-items: start;
+}
+.maintenance h1 {
+  font: 400 clamp(28px, 5vw, 48px) / 1.08 var(--f-display);
+  color: var(--ink);
+  margin: 0;
+}
+.maintenance .bubble {
+  font-size: clamp(17px, 2.4vw, 22px);
+  padding: 14px 22px 15px;
+  border-radius: 30px;
+}
+.maint-tag {
+  margin: 0;
+  padding: 6px var(--side);
+  background: var(--gold);
+  color: var(--on-gold);
+  font: 400 14px/1.4 var(--f-body);
+  text-align: center;
+}
+.maint-tag a {
+  color: inherit;
+  font-weight: 700;
+}
