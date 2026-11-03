@@ -2,6 +2,8 @@
 name = "mma"
 main = "worker.js"
 compatibility_date = "2026-09-01"
+# deploys (from your computer or the Worker action) keep variables set in the dashboard, like SERVERS
+keep_vars = true
 
 [vars]
 ALLOWED_ORIGINS = "https://lolesterrr.github.io,http://localhost:*,http://127.0.0.1:*"

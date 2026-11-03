@@ -98,7 +98,12 @@ Complaints are public issues, and the desk says so. It attaches the page, the ti
 
 ### Optional: deploy the worker from GitHub
 
-The [Worker workflow](.github/workflows/worker.yml) redeploys the worker whenever `worker/` changes, once you add two repo secrets: `CLOUDFLARE_API_TOKEN` (made from the "Edit Cloudflare Workers" template) and `CLOUDFLARE_ACCOUNT_ID`.
+The [Worker workflow](.github/workflows/worker.yml) redeploys the worker whenever `worker/` changes, so nobody has to paste code into the dashboard. It needs two repo secrets (GitHub repo > Settings > Secrets and variables > Actions > New repository secret):
+
+1. `CLOUDFLARE_API_TOKEN`: Cloudflare dashboard > your profile (top right) > API Tokens > Create Token > "Edit Cloudflare Workers" template > Use template. Pick your account under Account Resources, then Continue to summary > Create Token, and copy it.
+2. `CLOUDFLARE_ACCOUNT_ID`: Cloudflare dashboard > Workers & Pages; the Account ID is in the right-hand column.
+
+Then run it once by hand: Actions > Worker > Run workflow. `keep_vars` in `wrangler.toml` keeps the variables you set in the dashboard, and secrets like `SIGNING_KEY` stay as they are.
 
 ### Maintenance mode
 
@@ -118,7 +123,7 @@ The site asks the worker first. When the worker comes back with nothing, it asks
    - `ALLOWED_ORIGINS`: `https://lolesterrr.github.io`
 4. **Create App**, copy its address and put it in `web/config.js` as `lookup`.
 
-Backstage then shows a "Deno helper" row, and the player says "found by the Deno helper" when it was the one that found the link. The helper tries Videasy and Hexa only (`SERVERS`). LookMovie refuses Cloudflare, and its links only work from the machine that asked for them (anyone else gets "WRONG HASH!"), so it only works through the local helper, where your computer does both.
+Backstage then shows a "Deno helper" row, and the player says "found by the Deno helper" when it was the one that found the link. The helper tries Videasy and Hexa only (`SERVERS`), and only looks things up: no video goes through Deno. Setting `RELAY_VIDEO=1` makes it also find VidLink and carry VidLink's MP4s (their host refuses Cloudflare), but one 1080p movie is about a tenth of Deno's free 20 GiB a month, and when that runs out the lookups stop too. LookMovie refuses Cloudflare, and its links only work from the machine that asked for them (anyone else gets "WRONG HASH!"), so it only works through the local helper, where your computer does both.
 
 ## If a source won't talk to Cloudflare
 

@@ -44,7 +44,7 @@
  *   ENCDEC_URL, VIDEASY_URL, LOOKMOVIE_URL, HEXA_URL, AUTOEMBED_URL, VIDLINK_URL, SUBS_URL   override hosts (tests, mirrors)
  */
 
-export const VERSION = "1.2.0"; // bump on every worker change, so /api/health shows which code a host is running
+export const VERSION = "1.3.0"; // bump on every worker change, so /api/health shows which code a host is running
 
 const DEFAULTS = {
   GITHUB_REPO: "lolesterrr/MMA-monsieur-pierre-mov-cli-",
@@ -607,7 +607,8 @@ export function createHandler(hooks = {}) {
     // that's a bad token, not Hexa refusing us, so get a fresh one and ask again
     let encrypted = null;
     let key = "";
-    for (let attempt = 0; attempt < 4 && encrypted === null; attempt++) {
+    const tries = 6;
+    for (let attempt = 0; attempt < tries && encrypted === null; attempt++) {
       key = randomHex(32);
       const challenge = await encdec(cfg, "enc-hexa");
       const token = challenge && challenge.token;
@@ -620,7 +621,7 @@ export function createHandler(hooks = {}) {
         });
       } catch (e) {
         if (!/captcha/i.test(e.body || "")) throw e;
-        if (attempt === 3) throw new HttpError(502, "captcha", "Hexa turned down 4 captcha tokens in a row. Try again in a minute.");
+        if (attempt === tries - 1) throw new HttpError(502, "captcha", `Hexa turned down ${tries} captcha tokens in a row. Try again in a minute.`);
         await wait(400);
       }
     }
