@@ -240,19 +240,21 @@ test("enc-dec.app's too-many-requests bursts get retried instead of failing Hexa
     const res = await patient(new Request(`${ORIGIN}${path}`, { headers: { Origin: "https://lolesterrr.github.io" } }), env);
     return { status: res.status, body: await res.json() };
   };
-  fake.set({ busy: 2 });
+  // a turned-down token makes the worker get a new one, and enc-dec.app is busy while it does
+  fake.set({ captcha: 1, busy: 2 });
   const ok = await ask2(movie("tt0000103", "9103", "Pierre Fiction", "1994", "&server=hexa&fresh=1"));
   assert.equal(ok.status, 200);
   assert.equal(ok.body.server, "hexa");
-  assert.deepEqual(waits, [700, 1500]);
+  // 0.4s before a new token, then enc-dec.app's two busy answers
+  assert.deepEqual(waits, [400, 700, 1500]);
   // a burst that outlasts the retries says so plainly
   waits.length = 0;
-  fake.set({ busy: 10 });
+  fake.set({ captcha: 1, busy: 10 });
   try {
     const no = await ask2(movie("tt0000103", "9103", "Pierre Fiction", "1994", "&server=hexa&fresh=1"));
     assert.equal(no.status, 404);
     assert.match(no.body.message, /enc-dec\.app is busy/);
-    assert.equal(waits.length, 3);
+    assert.deepEqual(waits, [400, 700, 1500, 3000]);
   } finally {
     fake.set({ busy: 0 });
   }
@@ -276,6 +278,17 @@ test("Hexa's captcha 403s get a fresh token, and don't bench Hexa for 15 minutes
   // the next auto lookup still asks Hexa
   const again = await ask2(movie("tt0000103", "9103", "Pierre Fiction", "1994", "&fresh=1"));
   assert.equal(again.server, "hexa");
+});
+
+test("Hexa's captcha: challenge, solved by enc-dec.app, redeemed; one token serves many lookups", async () => {
+  const before = fake.hexaChallenges;
+  for (const s of [1, 2, 3]) {
+    const { body } = await askJson(`/api/sources?type=series&imdb=tt0000201&tmdb=9201&title=Breaking%20Nap&year=2008&s=1&e=${s}&server=hexa&fresh=1`);
+    assert.equal(body.server, "hexa");
+  }
+  assert.ok(fake.hexaChallenges - before <= 1, `${fake.hexaChallenges - before} challenges for 3 lookups`);
+  const solve = fake.requests.filter((r) => r.path === "/encdec/api/enc-hexa").at(-1);
+  assert.ok(solve, "asked enc-dec.app to solve the challenge");
 });
 
 test("a dead Hexa link: its other links get a turn", async () => {

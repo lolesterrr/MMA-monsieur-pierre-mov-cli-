@@ -134,7 +134,7 @@ function master(codec, prefix = "") {
  * set({ blocked: true }) makes every source answer with Cloudflare's bot check.
  */
 export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = process.env.FAKE_CODEC || "h264" } = {}) {
-  const state = { blocked: false, issues: [], requests: [], down: new Set(), busy: 0, captcha: 0, alphaDead: false };
+  const state = { blocked: false, issues: [], requests: [], down: new Set(), busy: 0, captcha: 0, alphaDead: false, hexaChallenges: 0 };
   const mediaDir = media ? ensureMedia(codec) : null;
   const host = {};
   const challenge = (res) =>
@@ -222,13 +222,26 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
       }
     }
     if (p === "/encdec/api/enc-vidlink") return send(res, 200, { status: 200, result: `vl+${url.searchParams.get("text")}=` });
+    // ---- Hexa's captcha (Nov 2026): challenge here, solved by enc-dec.app, redeemed here
+    if (p === "/hexacap/challenge" && req.method === "POST") {
+      state.hexaChallenges++;
+      if (req.headers.origin !== "https://hexa.su") return send(res, 403, { error: "origin" });
+      return send(res, 200, { challenge: { c: 50, s: 32, d: 4 }, token: "challenge-1", expires: Date.now() + 600e3 });
+    }
+    if (p === "/hexacap/redeem" && req.method === "POST") {
+      const sol = JSON.parse(await readBody(req));
+      if (sol.token !== "challenge-1" || !Array.isArray(sol.solutions)) return send(res, 400, { success: false });
+      return send(res, 200, { success: true, token: "cap-token", expires: Date.now() + 600e3 });
+    }
     if (p === "/encdec/api/enc-hexa") {
       // like the real one in a burst: "oop! too many requests", as an HTTP 500
       if (state.busy > 0) {
         state.busy--;
         return send(res, 500, { status: 500, error: "oop! too many requests" });
       }
-      return send(res, 200, { status: 200, result: { token: "cap-token" } });
+      const { challenge_data: ch } = JSON.parse((req.method === "POST" && (await readBody(req))) || "{}");
+      if (!ch || ch.token !== "challenge-1") return send(res, 200, { status: 400, error: "Expected body: challenge_data {challenge, token, instrumentation}" });
+      return send(res, 200, { status: 200, result: { token: ch.token, solutions: [1, 2, 3] } });
     }
     if (p === "/encdec/api/dec-hexa" && req.method === "POST") {
       const { text, key } = JSON.parse(await readBody(req));
@@ -365,6 +378,7 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
       VIDEASY_URL: `${host.sources}/videasy`,
       LOOKMOVIE_URL: `${host.sources}/lookmovie`,
       HEXA_URL: `${host.sources}/hexa`,
+      HEXA_CAP_URL: `${host.sources}/hexacap`,
       AUTOEMBED_URL: `${host.sources}/autoembed`,
       VIDLINK_URL: `${host.sources}/vidlink`,
       SUBS_URL: `${host.sources}/subs`,
@@ -372,6 +386,9 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
     },
     issues: state.issues,
     requests: state.requests,
+    get hexaChallenges() {
+      return state.hexaChallenges;
+    },
     mediaDir,
     set(opts) {
       if ("blocked" in opts) state.blocked = opts.blocked;

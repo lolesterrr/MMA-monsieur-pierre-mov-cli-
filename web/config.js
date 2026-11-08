@@ -12,7 +12,7 @@ window.MMA_CONFIG = {
   // (only its SHA-256 is here) and that browser remembers it. ?pierre=off forgets it again.
   // The local helper (node local/server.mjs) doesn't use this file, so it always works.
   maintenance: true,
-  maintenanceKey: "69764b09264b441d4d372cd67197eca6aa1336cda4f56db27f3100c8451d0f49",
+  maintenanceKey: "c060381bb81e9503d9037372e5683245e674068dfc0c1af1eb05f01086b90008",
   // the public movie and series catalog (search, posters, episode lists)
   catalog: "https://v3-cinemeta.strem.io",
 };

@@ -41,10 +41,10 @@
  *                    Links it finds then play through that worker, which shares its SIGNING_KEY.
  *   COMPLAINTS_PER_10_MIN  per visitor, default 5
  *   HEALTH_TITLE     what the deep health check plays, "imdb,tmdb,title,year" (default Inception)
- *   ENCDEC_URL, VIDEASY_URL, LOOKMOVIE_URL, HEXA_URL, AUTOEMBED_URL, VIDLINK_URL, SUBS_URL   override hosts (tests, mirrors)
+ *   ENCDEC_URL, VIDEASY_URL, LOOKMOVIE_URL, HEXA_URL, HEXA_CAP_URL, AUTOEMBED_URL, VIDLINK_URL, SUBS_URL   override hosts (tests, mirrors)
  */
 
-export const VERSION = "1.3.0"; // bump on every worker change, so /api/health shows which code a host is running
+export const VERSION = "1.4.0"; // bump on every worker change, so /api/health shows which code a host is running
 
 const DEFAULTS = {
   GITHUB_REPO: "lolesterrr/MMA-monsieur-pierre-mov-cli-",
@@ -53,6 +53,8 @@ const DEFAULTS = {
   VIDEASY_URL: "https://api.wecollege.net",
   LOOKMOVIE_URL: "https://lmscript.xyz",
   HEXA_URL: "https://theemoviedb.hexa.su",
+  // Hexa's captcha (Nov 2026): a challenge from here, solved by enc-dec.app, redeemed here for a token
+  HEXA_CAP_URL: "https://cap.hexa.su/15d2cf0395",
   AUTOEMBED_URL: "https://tom.autoembed.cc",
   VIDLINK_URL: "https://vidlink.pro",
   SUBS_URL: "https://opensubtitles-v3.strem.io",
@@ -433,6 +435,7 @@ function settings(env) {
     videasy: trim(env.VIDEASY_URL || DEFAULTS.VIDEASY_URL),
     lookmovie: trim(env.LOOKMOVIE_URL || DEFAULTS.LOOKMOVIE_URL),
     hexa: trim(env.HEXA_URL || DEFAULTS.HEXA_URL),
+    hexaCap: trim(env.HEXA_CAP_URL || DEFAULTS.HEXA_CAP_URL),
     autoembed: trim(env.AUTOEMBED_URL || DEFAULTS.AUTOEMBED_URL),
     vidlink: trim(env.VIDLINK_URL || DEFAULTS.VIDLINK_URL),
     subs: trim(env.SUBS_URL || DEFAULTS.SUBS_URL),
@@ -600,19 +603,38 @@ export function createHandler(hooks = {}) {
     };
   }
 
+  /**
+   * A Hexa captcha token. Since Nov 2026 it takes three steps: Hexa hands out a challenge,
+   * enc-dec.app solves it, and Hexa trades the solution for a token. A token is good for about
+   * 20 lookups, so it's kept and shared until it runs out (or Hexa turns it down).
+   */
+  async function hexaToken(cfg, fresh) {
+    const kept = !fresh && memoGet("hexa:token");
+    if (kept && kept.uses > 0) {
+      kept.uses--;
+      return kept.token;
+    }
+    const capHeaders = { Origin: "https://hexa.su", Referer: HEXA_REFERER };
+    const challenge = await callJson(`${cfg.hexaCap}/challenge`, { method: "POST", headers: capHeaders, what: "Hexa's captcha" });
+    const solved = await encdec(cfg, "enc-hexa", { method: "POST", json: { challenge_data: challenge } });
+    if (!solved) throw new HttpError(502, "decrypt", "enc-dec.app didn't solve Hexa's captcha.");
+    const redeemed = await callJson(`${cfg.hexaCap}/redeem`, { method: "POST", headers: capHeaders, json: solved, what: "Hexa's captcha" });
+    const token = redeemed && redeemed.token;
+    if (!token) throw new HttpError(502, "captcha", "Hexa didn't hand out a captcha token.");
+    memoSet("hexa:token", { token, uses: 18 }, 10 * 60e3);
+    return token;
+  }
+
   async function hexa(cfg, m) {
     if (!m.tmdb) throw new HttpError(404, "no_id", "Hexa needs the TMDB id, and Cinemeta doesn't have one for this.");
     const path = m.type === "series" ? `tv/${m.tmdb}/season/${m.s}/episode/${m.e}` : `movie/${m.tmdb}`;
-    // Hexa turns away about half of enc-dec.app's captcha tokens (HTTP 403 "captcha_required"):
-    // that's a bad token, not Hexa refusing us, so get a fresh one and ask again
+    // a token Hexa turns down (HTTP 403 "captcha_required") gets replaced by a fresh one
     let encrypted = null;
     let key = "";
-    const tries = 6;
+    const tries = 4;
     for (let attempt = 0; attempt < tries && encrypted === null; attempt++) {
       key = randomHex(32);
-      const challenge = await encdec(cfg, "enc-hexa");
-      const token = challenge && challenge.token;
-      if (!token) throw new HttpError(502, "decrypt", "enc-dec.app didn't hand out a Hexa token.");
+      const token = await hexaToken(cfg, attempt > 0);
       try {
         encrypted = await call(`${cfg.hexa}/api/tmdb/${path}/images`, {
           headers: { Referer: HEXA_REFERER, Accept: "text/plain", "X-Fingerprint-Lite": "e9136c41504646444", "X-Api-Key": key, "X-Cap-Token": token },
@@ -621,6 +643,7 @@ export function createHandler(hooks = {}) {
         });
       } catch (e) {
         if (!/captcha/i.test(e.body || "")) throw e;
+        memoSet("hexa:token", null, 1);
         if (attempt === tries - 1) throw new HttpError(502, "captcha", `Hexa turned down ${tries} captcha tokens in a row. Try again in a minute.`);
         await wait(400);
       }
