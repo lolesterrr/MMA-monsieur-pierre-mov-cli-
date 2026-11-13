@@ -137,6 +137,16 @@ test("hexa streams come with a direct link the browser can play", async () => {
   assert.match(await (await ask(body.master)).text(), /^#EXTM3U/);
 });
 
+test("hexa: the copy by TMDB id is checked and relayed with hexa.su's Referer, not swapped for a name-matched backup", async () => {
+  const { status, body } = await askJson("/api/sources?type=series&imdb=tt0000201&tmdb=9201&title=Breaking%20Nap&year=2008&s=1&e=2&server=hexa&fresh=1");
+  assert.equal(status, 200);
+  assert.match(body.direct, /\/hx\/tt0000201\/1\/2\/720\/index\.m3u8$/);
+  const master = await ask(body.master);
+  assert.match(await master.text(), /^#EXTM3U/);
+  const hits = fake.requests.filter((r) => r.server === "open" && r.path.startsWith("/hx/tt0000201/1/2/"));
+  assert.ok(hits.length && hits.every((r) => r.headers.referer === "https://hexa.su/"));
+});
+
 test("nothing anywhere: 404 with what every server said", async () => {
   const { status, body } = await askJson(movie("tt0000104", "9104", "The Nap Knight", "2008"));
   assert.equal(status, 404);

@@ -358,6 +358,12 @@ export async function startFake({ ports = [0, 0, 0, 0], media = true, codec = pr
     }
     const m = url.pathname.match(/^\/(hx|lm|ae)\/(tt\d+)(?:\/\d+\/\d+)?\/(.+)$/);
     if (!m || !mediaDir) return send(res, 404, "", "text/plain", cors);
+    // Hexa's video host, like the real one: another site's Referer gets a 403, none at all is fine,
+    // and some titles (here Breaking Nap, like Doctor Who 2005) answer only to hexa.su
+    if (m[1] === "hx") {
+      const ref = req.headers.referer || "";
+      if (m[2] === "tt0000201" ? ref !== "https://hexa.su/" : ref && ref !== "https://hexa.su/") return send(res, 403, "<html>403 Forbidden</html>", "text/html", cors);
+    }
     if (m[3] === "subs/en.vtt") return send(res, 200, VTT("en"), "text/vtt", cors);
     return streamFile(req, res, mediaDir, m[3], cors);
   });

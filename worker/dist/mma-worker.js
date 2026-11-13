@@ -46,7 +46,7 @@
  *   ENCDEC_URL, VIDEASY_URL, LOOKMOVIE_URL, HEXA_URL, HEXA_CAP_URL, AUTOEMBED_URL, VIDLINK_URL, SUBS_URL   override hosts (tests, mirrors)
  */
 
-const VERSION = "1.4.0"; // bump on every worker change, so /api/health shows which code a host is running
+const VERSION = "1.5.0"; // bump on every worker change, so /api/health shows which code a host is running
 
 const DEFAULTS = {
   GITHUB_REPO: "lolesterrr/MMA-monsieur-pierre-mov-cli-",
@@ -656,7 +656,12 @@ function createHandler(hooks = {}) {
     // "alpha" is the plain stream; the others go through Hexa's own proxy. When one is dead, the
     // others get a turn (alts).
     const ordered = [...list.filter((s) => s.server === "alpha"), ...list.filter((s) => s.server !== "alpha")];
-    return { master: ordered[0].url, variants: [], referer: "", direct: true, subtitles: [], alts: ordered.slice(1).map((s) => s.url) };
+    // Hexa's video host answers some titles only to a hexa.su Referer (Doctor Who 2005: 403 without
+    // it). Checking without it threw out "alpha", the copy looked up by TMDB id, for the backups,
+    // which Hexa matches by name, season and episode, so S1 of the 2005 series got the 2023 one.
+    // So the check and the relay say hexa.su; the browser still tries it straight first (the site
+    // sends no Referer at all, which the host accepts for most titles).
+    return { master: ordered[0].url, variants: [], referer: HEXA_REFERER, direct: true, subtitles: [], alts: ordered.slice(1).map((s) => s.url) };
   }
 
   /**
