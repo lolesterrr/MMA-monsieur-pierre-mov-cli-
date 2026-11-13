@@ -1,0 +1,82 @@
+{
+ "dw2005-s1e1": {
+  "api": [
+   {
+    "status": 200,
+    "server": "hexa",
+    "direct": "https://fuckme.dragonballzfans.xyz/8dedf2f39143a1f6a7ca1ebbc91fa3d2/c5",
+    "msg": ""
+   }
+  ],
+  "hosts": [
+   "relay 200"
+  ],
+  "final": {
+   "t": 3.662514,
+   "dur": 46.3,
+   "problem": null,
+   "ep": "S1 E1: Rose"
+  },
+  "seconds": 8.1
+ },
+ "dw2005-s2e1": {
+  "api": [
+   {
+    "status": 200,
+    "server": "hexa",
+    "direct": "https://fuckme.dragonballzfans.xyz/16598bfc0d93e2338fb97ea9fd3cc7ff/4a",
+    "msg": ""
+   }
+  ],
+  "hosts": [
+   "relay 200"
+  ],
+  "final": {
+   "t": 4.434465,
+   "dur": 46.3,
+   "problem": null,
+   "ep": "S2 E1: New Earth"
+  },
+  "seconds": 10.0
+ },
+ "dw2023-s1e1": {
+  "api": [
+   {
+    "status": 200,
+    "server": "hexa",
+    "direct": "https://shrek.dragonballzfans.xyz/proxy?data=GHh75w0NVbmtI2BOnfaYOO_9J",
+    "msg": ""
+   }
+  ],
+  "hosts": [
+   "direct 200"
+  ],
+  "final": {
+   "t": 5.190271,
+   "dur": 55.4,
+   "problem": null,
+   "ep": "S1 E1: Space Babies"
+  },
+  "seconds": 10.0
+ },
+ "dw2005-s4e1": {
+  "api": [
+   {
+    "status": 200,
+    "server": "hexa",
+    "direct": "https://fuckme.dragonballzfans.xyz/b1b506a3e5c34f24ae21db36b58e6db0/5c",
+    "msg": ""
+   }
+  ],
+  "hosts": [
+   "relay 200"
+  ],
+  "final": {
+   "t": 3.412198,
+   "dur": 51,
+   "problem": null,
+   "ep": "S4 E1: Partners in Crime"
+  },
+  "seconds": 5.0
+ }
+}
